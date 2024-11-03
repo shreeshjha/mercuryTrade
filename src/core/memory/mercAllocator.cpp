@@ -4,6 +4,15 @@
 
 #include <iostream>
 #include <stdio.h>
+#include <cstddef>
+#include <cstdlib>
+#include <atomic>
+#include <memory>
+#include <stdexcept>
+#include <new>
+#include <array>
+#include <cassert>
+
 
 int main() {
   std::cout << "Hello Sam, Start Contributing from here on";
