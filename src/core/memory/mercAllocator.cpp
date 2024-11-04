@@ -81,7 +81,78 @@ namespace mercuryTrade {
       std::size_t FixedAllocator::available_blocks() const noexcept{
         return m_pool_size - m_blocks_in_use.load(std::memory_order_acquire);
       }
+      
+      void* FixedAllocator::allocate() noexcept {
+        // Keep allocating untill we succeed or we run out of memory
+        while (true) {
+          // Get the current head of the free list
+          memoryBlock* current = m_free_list.load(std::memory_order_acquire);
+          
+          // If we are getting nullptr then it means we have run out of memory 
+          if(current == nullptr) {
+            return nullptr;
+          }
 
+          // If memory is free we will try getting next block in free list
+          memoryBlock* next = current->header.next.load(std::memory_order_acquire);
+
+          // Try to update the free list head to point to the next block
+          // If we are unable to do this it means another thread has done that, and will try again
+          
+          if(!m_free_list.compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
+            continue; // Try again from the beginning to get this block;
+          }
+
+          // If we have succeeded in claiming this block then
+          current->header.is_allocated.store(true, std::memory_order_release);
+          
+          // Increment the count of blocks in block 
+          m_blocks_in_use.fetch_add(1, std::memory_order_relaxed);
+          
+          // return the data portion of the block
+          return current->data;
+        }
+      }
+
+      void FixedAllocator::deallocate(void* ptr) noexcept {
+        if(ptr == nullptr) {
+          return; // Null pointer deallocation is no-op
+        }
+
+        //convert the data pointer back to a block pointer
+        //We can do this because we know the data member's offset in the block
+        
+        memoryBlock* block = reinterpret_cast<memoryBlock*>(
+          reinterpret_cast<std::byte*>(ptr) - offset(memoryBlock, data)
+        );
+          
+        //We will verify whether this is actually one of our blocks
+        
+        if(block < m_pool.get() || block >= (m_pool.get() + m_pool_size)) {
+          //This pointer wasn't allocated by us so ignore it.
+          return;
+        }
+
+        //Mark the block as not allocated
+        block->header.is_allocated.store(false, std::memory_order_release);
+        
+        //Keep trying to add the block back to the free list until we succeed
+        while (true) {
+          //Get the current head of the free list
+          memoryBlock* current_head = m_free_list.load(std::memory_order_acquire);
+          
+          //Make our block point to the current head
+          block->header.next.store(current_head, std::memory_order_release);
+
+          //Try to make our block the new head 
+          if(m_free_list.compare_exchange_weak(current_head, block, std::memory_order_release, std::memory_order_relaxed)) {
+            break; //Successs!
+          }
+          //If we failed, loop and try again
+        }
+        //Decrement the count of blocks in use 
+        m_blocks_in_use.fetch_sub(1, std::memory_order_relaxed);
+      }
     }
   }
 }
