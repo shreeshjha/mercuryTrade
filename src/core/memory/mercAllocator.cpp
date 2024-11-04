@@ -16,7 +16,7 @@ Samarth Bhatia (Msc Computer Science and Engineering, Politecnico di Milano)
 #include <new>
 #include <array>
 #include <cassert>
-#include "mercuryTrade/include/core/memory/mercuryTrade.hpp"
+#include "include/mercuryTrade/core/memory/mercuryAllocator.hpp";
 
 // Namespace Structure for Our Application
 namespace mercuryTrade {
@@ -41,6 +41,37 @@ namespace mercuryTrade {
          //
         // This is actual storage of data    
         alignas(CACHE_LINE_SIZE) std::byte data[BLOCK_SIZE]
+      };
+
+      class FixedAllocator{
+        private:
+          std::atomic<memoryBlock*> m_free_list; //This is a pointer to the first free block
+          std::unique_ptr<memoryBlock[]> m_pool; //This is the memory pool containing the blocks
+          std::size_t m_pool_size; //This is the current pool size or the total number of blocks
+          std::atomic<std::size_t> m_blocks_in_use; //This tracks the number of allocated blocks;
+
+        public:
+          //The constructor takes the pool size
+          explicit FixedAllocator(std::size_t pool_size = DEFAULT_POOL_SIZE); 
+
+          // Prevent Copying of allocators
+          FixedAllocator(const FixedAllocator&) = delete;
+          FixedAllocator& operator=(const FixedAllocator&) = delete; 
+
+          // This is to allow moving which is useful for initializing
+          FixedAllocator(FixedAllocator&&) noexcept;
+          FixedAllocator& operator=(FixedAllocator&&) noexcept;
+
+          // Destructor
+          ~FixedAllocator() noexcept;
+          
+          //These are the Core Allocation Methods
+          void* allocate() noexcept;
+          void deallocate(void* ptr) noexcept;
+
+          //These are the utility methods
+          std::size_t blocks_in_use() const noexcept;
+          std::size_t available_blocks() const noexcept;
       };
     }
   }
