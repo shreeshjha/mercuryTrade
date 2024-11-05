@@ -99,7 +99,7 @@ namespace mercuryTrade {
           // Try to update the free list head to point to the next block
           // If we are unable to do this it means another thread has done that, and will try again
           
-          if(!m_free_list.compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
+          if(!m_free_list.compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_relaxed)) {
             continue; // Try again from the beginning to get this block;
           }
 
@@ -110,7 +110,7 @@ namespace mercuryTrade {
           m_blocks_in_use.fetch_add(1, std::memory_order_relaxed);
           
           // return the data portion of the block
-          return current->data;
+          return static_cast<void*>(&current->data);
         }
       }
 
@@ -122,8 +122,9 @@ namespace mercuryTrade {
         //convert the data pointer back to a block pointer
         //We can do this because we know the data member's offset in the block
         
+        std::byte* byte_ptr = static_cast<std::byte*>(ptr);
         memoryBlock* block = reinterpret_cast<memoryBlock*>(
-          reinterpret_cast<std::byte*>(ptr) - offset(memoryBlock, data)
+          byte_ptr - offsetof(memoryBlock, data)
         );
           
         //We will verify whether this is actually one of our blocks
@@ -157,7 +158,3 @@ namespace mercuryTrade {
   }
 }
 
-int main() {
-  std::cout << "Hello Sam, Start Contributing from here on";
-  return 0;
-}

@@ -4,7 +4,7 @@
 #include <cassert>
 #include <iostream>
 
-using namespace mercuryTrade::core::memory
+using namespace mercuryTrade::core::memory;
 
 //Test helper to print results
 void printTestResult(const char* testName, bool passed) {
@@ -14,21 +14,21 @@ void printTestResult(const char* testName, bool passed) {
 //Basic allocation test 
 
 void testBasicAllocation() {
-  FixedAllocator allocator(4) //Small pool for testing 
+  FixedAllocator allocator(4); //Small pool for testing 
   
   //Test initial state
-  assert(allocator.block_in_use() == 0);
+  assert(allocator.blocks_in_use() == 0);
   assert(allocator.available_blocks() == 4);
 
   //Test allocation
   void* ptr1 = allocator.allocate();
   assert(ptr1 != nullptr);
-  assert(allocator.block_in_use() == 1);
+  assert(allocator.blocks_in_use() == 1);
   assert(allocator.available_blocks() == 3);
 
   //Test deallocation
   allocator.deallocate(ptr1);
-  assert(allocator.block_in_use() == 0);
+  assert(allocator.blocks_in_use() == 0);
   assert(allocator.available_blocks() == 4);
 
   printTestResult("Basic Allocation", true);
@@ -49,7 +49,7 @@ void testFullAllocation() {
   
   //Verify if we're out of memory
   assert(allocator.allocate() == nullptr);
-  assert(allocator.block_in_use() == poolSize);
+  assert(allocator.blocks_in_use() == poolSize);
   assert(allocator.available_blocks() == 0);
 
   //Free all blocks
@@ -58,7 +58,7 @@ void testFullAllocation() {
   }
 
   //Verify all memory is available again
-  assert(allocator.block_in_use() == 0);
+  assert(allocator.blocks_in_use() == 0);
   assert(allocator.available_blocks() == poolSize);
 
   printTestResult("Full Allocation", true);
