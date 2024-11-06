@@ -1,12 +1,12 @@
-add_executable(mercAllocatorTest mercAllocatorTest.cpp)
+# Remove previous test entries if they exist
+if(TARGET mercAllocatorTest)
+    remove_test(mercAllocatorTest)
+endif()
 
-target_link_libraries(mercAllocatorTest
-    PRIVATE
-        mercury_memory  # This should match the library name defined in src/CMakeLists.txt
-)
+if(TARGET mercAllocatorManagerTest)
+    remove_test(mercAllocatorManagerTest)
+endif()
 
-# Add test to CTest
-add_test(NAME mercAllocatorTest COMMAND mercAllocatorTest)
 # Add test executables
 add_executable(mercAllocatorTest mercAllocatorTest.cpp)
 add_executable(mercAllocatorManagerTest mercAllocatorManagerTest.cpp)
@@ -23,5 +23,5 @@ target_link_libraries(mercAllocatorManagerTest
 )
 
 # Add tests to CTest
-add_test(NAME mercAllocatorTest COMMAND mercAllocatorTest)
-add_test(NAME mercAllocatorManagerTest COMMAND mercAllocatorManagerTest)
+add_test(NAME AllocatorTest COMMAND mercAllocatorTest)          # Changed test name
+add_test(NAME AllocatorManagerTest COMMAND mercAllocatorManagerTest)  # Different test name
