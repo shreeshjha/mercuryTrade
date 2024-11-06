@@ -1,7 +1,8 @@
 # src/core/memory/CMakeLists.txt
 add_library(mercury_memory
     mercAllocator.cpp
-    mercAllocatorManager.cpp  # Add this line
+    mercAllocatorManager.cpp
+    mercMemoryTracker.cpp
 )
 
 target_include_directories(mercury_memory

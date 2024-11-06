@@ -42,15 +42,24 @@ void AllocatorManager::initializePools() {
 }
 
 //Constructor
-AllocatorManager::AllocatorManager() {
+/*AllocatorManager::AllocatorManager() : m_tracker(MemoryTracker::instance()) {
   initializePools();
+}*/
+
+AllocatorManager::~AllocatorManager() noexcept {
+  //Check for leaks when allocator manager is destroyed
+  checkForLeaks();
 }
 
 //Core allocation method 
-void * AllocatorManager::allocate(std::size_t size) {
+void * AllocatorManager::allocate(std::size_t size, const char* file, int line) {
   if(size > MAX_BLOCK_SIZE) {
     //For large allocations, use system allocator 
-    return ::operator new(size, std::nothrow);
+    void* ptr = ::operator new(size, std::nothrow);
+    if(ptr) {
+      m_tracker.trackAllocation(ptr, size, file, line);
+    }
+    return ptr;
   }
 
   std::lock_guard<std::mutex> lock(m_mutex);
@@ -64,13 +73,15 @@ void * AllocatorManager::allocate(std::size_t size) {
   if(!ptr) {
     throw std::bad_alloc();
   }
-
+  m_tracker.trackAllocation(ptr, m_pools[poolIndex].block_size, file, line);
   return ptr;
 }
 
 // Core deallocation method
 void AllocatorManager::deallocate(void *ptr, std::size_t size) {
   if(!ptr) return;
+
+  m_tracker.trackDeallocation(ptr);
 
   if(size > MAX_BLOCK_SIZE) {
     //For large allocations, use sysyem deallocator
@@ -88,6 +99,17 @@ void AllocatorManager::deallocate(void *ptr, std::size_t size) {
   m_pools[poolIndex].allocator->deallocate(ptr);
 }
 
+void AllocatorManager::printMemoryReport() const {
+  m_tracker.printReport();
+}
+
+void AllocatorManager::checkForLeaks() const {
+  m_tracker.detectLeaks();
+}
+
+MemoryTracker::MemoryStats AllocatorManager::getMemoryStats() const {
+  return m_tracker.getStats();
+}
 //Utility Methods
 std::size_t AllocatorManager::getPoolCount() const noexcept {
     return m_pools.size();

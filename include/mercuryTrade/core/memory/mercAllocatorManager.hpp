@@ -2,6 +2,7 @@
 #define MERC_ALLOCATOR_MANAGER_HPP
 
 #include "mercAllocator.hpp"
+#include "mercMemoryTracker.hpp"
 #include <vector>
 #include <memory>
 #include <mutex>
@@ -28,7 +29,7 @@ private:
 
   std::vector<PoolInfo> m_pools; // Vector of memory pools
   mutable std::mutex m_mutex; // Mutex for thread safety 
-
+  MemoryTracker& m_tracker; //Reference Member
   // Helper methods
   std::size_t findPoolIndex(std::size_t size) const;
   std::size_t roundUpToNextPowerOf2(std::size_t size) const;
@@ -36,8 +37,11 @@ private:
   void initializePools();
 
 public:
-  AllocatorManager();
-  ~AllocatorManager() noexcept = default;
+  //Constructor  needs to initialize the reference member
+  AllocatorManager() : m_tracker(MemoryTracker::instance()) {
+    initializePools();
+  }
+  ~AllocatorManager() noexcept;
 
   //Prevent copying 
   AllocatorManager(const AllocatorManager&) = delete;
@@ -47,8 +51,13 @@ public:
   AllocatorManager(AllocatorManager&&) noexcept = default;
   AllocatorManager& operator = (AllocatorManager&&) noexcept = default;   
   //Core allocation methods
-  void* allocate(std::size_t size);
+  void* allocate(std::size_t size, const char* file = nullptr, int line = 0);
   void deallocate(void* ptr, std::size_t size);
+
+  //Memory Tracking methods
+  void printMemoryReport() const;
+  void checkForLeaks() const;
+  MemoryTracker::MemoryStats getMemoryStats() const;
 
   //Utility methods
   std::size_t getPoolCount() const noexcept;
@@ -67,6 +76,9 @@ public:
   std::vector<PoolStats> getPoolStats() const;
 };
 
+//Macro for allocation with tracking
+#define ALLOC_TRACKED(manager, size) \
+  manager.allocate(size, __FILE__, __LINE__)
     }
   }
 }
