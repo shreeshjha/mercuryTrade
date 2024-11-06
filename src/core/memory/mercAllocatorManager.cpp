@@ -2,6 +2,7 @@
 #include <cmath>
 #include <algorithm>
 #include <stdexcept>
+#include <vector>
 
 namespace mercuryTrade {
   namespace core {
@@ -34,9 +35,9 @@ std::size_t AllocatorManager::findPoolIndex(std::size_t size) const {
 }
 
 // Initialize pools with predefined block size 
-void AllocatorManager::InitializePools() {
+void AllocatorManager::initializePools() {
   for(std::size_t size = MIN_BLOCK_SIZE; size <= MAX_BLOCK_SIZE; size*=2) {
-    m_pools.emplace_black(size, DEFAULT_POOL_SIZE);
+    m_pools.emplace_back(size, DEFAULT_POOL_SIZE);
   }
 }
 
@@ -59,7 +60,7 @@ void * AllocatorManager::allocate(std::size_t size) {
     throw std::runtime_error("Invalid pool index");
   }
 
-  void *ptr = m_pools[poolIndex].allocator->allocated();
+  void *ptr = m_pools[poolIndex].allocator->allocate();
   if(!ptr) {
     throw std::bad_alloc();
   }
@@ -68,7 +69,7 @@ void * AllocatorManager::allocate(std::size_t size) {
 }
 
 // Core deallocation method
-void AllocatorManager::deallocated(void *ptr, std::size_t size) {
+void AllocatorManager::deallocate(void *ptr, std::size_t size) {
   if(!ptr) return;
 
   if(size > MAX_BLOCK_SIZE) {
