@@ -1,4 +1,42 @@
-- name: Generate Coverage Report
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake g++ build-essential
+
+    - name: Create Build Directory
+      run: mkdir build
+
+    - name: Configure CMake
+      run: |
+        cd build
+        cmake ..
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Release
+
+    - name: Run Tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Generate Coverage Report
       run: |
         sudo apt-get install -y lcov
         cd build
@@ -8,17 +46,41 @@
         lcov --remove coverage.info '/usr/*' --output-file coverage.info
         lcov --list coverage.info
 
-- name: Upload Coverage Report
+    - name: Upload Coverage Report
       uses: codecov/codecov-action@v3
       with:
         files: ./build/coverage.info
 
-- name: Static Analysis
+    - name: Static Analysis
       run: |
         sudo apt-get install -y cppcheck
         cppcheck --enable=all --suppress=missingIncludeSystem .
 
-- name: Check Format
+    - name: Check Format
       run: |
         sudo apt-get install -y clang-format
         find . -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Create Build Directory
+      run: mkdir build
+
+    - name: Configure CMake
+      run: |
+        cd build
+        cmake ..
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Release
+
+    - name: Run Tests
+      run: |
+        cd build
+        ctest --output-on-failure
