@@ -4,6 +4,9 @@
 #include <cassert>
 #include <iostream>
 #include <unordered_set>
+#include <algorithm>
+#include <cstring>
+
 
 using namespace mercuryTrade::core::memory;
 
