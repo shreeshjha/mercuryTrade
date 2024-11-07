@@ -1,19 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
 project(mercuryTrade VERSION 1.0.0 LANGUAGES CXX)
 
-# Add code coverage option
-option(CODE_COVERAGE "Enable coverage reporting" OFF)
-
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Add coverage flags if enabled
-if(CODE_COVERAGE)
-    # Add coverage flags
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fprofile-arcs -ftest-coverage")
-endif()
 
 # Add compiler warnings
 if(MSVC)

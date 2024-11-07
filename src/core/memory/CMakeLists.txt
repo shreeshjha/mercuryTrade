@@ -10,12 +10,6 @@ target_include_directories(mercury_memory
         ${PROJECT_SOURCE_DIR}/include
 )
 
-# Set compile flags for coverage if enabled
-if(CODE_COVERAGE)
-    target_compile_options(mercury_memory PRIVATE --coverage)
-    target_link_options(mercury_memory PRIVATE --coverage)
-endif()
-
 # Set C++ standard for this target
 set_target_properties(mercury_memory PROPERTIES
     CXX_STANDARD 17

@@ -16,44 +16,25 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake g++ build-essential lcov
+        sudo apt-get install -y cmake g++ build-essential
 
     - name: Create Build Directory
       run: mkdir build
 
-    - name: Configure CMake with Coverage
+    - name: Configure CMake
       run: |
         cd build
-        cmake -DCODE_COVERAGE=ON ..
+        cmake ..
 
     - name: Build
       run: |
         cd build
-        cmake --build .
+        cmake --build . --config Release
 
     - name: Run Tests
       run: |
         cd build
         ctest --output-on-failure
-
-    - name: Generate Coverage Report
-      run: |
-        cd build
-        # Run tests again to generate coverage data
-        ./tests/core/memory/mercAllocatorTest
-        ./tests/core/memory/mercAllocatorManagerTest
-        ./tests/core/memory/mercMemoryTrackingTest
-        # Generate coverage report
-        lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' '/Library/*' '*/tests/*' --output-file coverage.info
-        lcov --list coverage.info
-
-    - name: Upload Coverage Report
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./build/coverage.info
-        fail_ci_if_error: true
-        verbose: true
 
   build-macos:
     runs-on: macos-latest
@@ -72,7 +53,7 @@ jobs:
     - name: Build
       run: |
         cd build
-        cmake --build .
+        cmake --build . --config Release
 
     - name: Run Tests
       run: |
