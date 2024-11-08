@@ -9,19 +9,19 @@ namespace mercuryTrade{
     namespace core{
         namespace memory{
             class marketDataAllocator{
-                private:
+                public:
                     struct bufferConfig{
                         std::size_t quote_size; // size for quote messages
                         std::size_t trade_size; // size for trade messages
                         std::size_t snapshot_size; // size for market snapshot
                         std::size_t buffer_capacity; // Number of messages per buffer
                     };
+                private:
                     AllocatorManager m_allocator;
                     bufferConfig m_config;
                     std::atomic<std::size_t> m_quotes_allocated{0};
                     std::atomic<std::size_t> m_trades_allocated{0};
                     std::atomic<std::size_t> m_snapshots_allocated{0};
-
                 public:
                     // initialize with specific buffer sizes
                     explicit marketDataAllocator(const bufferConfig& config = getDefaultConfig());

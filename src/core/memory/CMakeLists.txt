@@ -3,6 +3,7 @@ add_library(mercury_memory
     mercAllocator.cpp
     mercAllocatorManager.cpp
     mercMemoryTracker.cpp
+    mercMarketDataAllocator.cpp
 )
 
 target_include_directories(mercury_memory
