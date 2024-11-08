@@ -42,14 +42,14 @@ namespace mercuryTrade{
                     void deallocateBuffer(void* ptr, std::size_t size);
 
                     // statistics and monitoring
-                    struct AllocationStats{
+                    struct allocationStats{
                         std::size_t quotes_allocated;
                         std::size_t trades_allocated;
                         std::size_t snapshots_allocated;
                         std::size_t total_memory_used;
                     };
 
-                    AllocationStats getStats() const;
+                    allocationStats getStats() const;
 
                     // Default config
                     static bufferConfig getDefaultConfig(){
