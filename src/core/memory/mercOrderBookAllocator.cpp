@@ -67,15 +67,27 @@ OrderNode* OrderBookAllocator::allocateOrder() {
 void OrderBookAllocator::deallocateOrder(OrderNode* order) {
     if (!order) return;
 
-    std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
-    
-    // Remove from lookup map
+    // Remove from parent price level if exists
+    if (order->parent_level) {
+        if (order->parent_level->first_order == order) {
+            order->parent_level->first_order = order->next;
+        }
+        if (order->parent_level->last_order == order) {
+            order->parent_level->last_order = order->prev;
+        }
+        order->parent_level->order_count--;
+        order->parent_level->total_quantity -= order->quantity;
+    }
+
+    // Update links
+    if (order->prev) order->prev->next = order->next;
+    if (order->next) order->next->prev = order->prev;
+
+    // Remove from lookup map before deallocating
     m_order_map.erase(order->order_id);
-    
-    // Deallocate memory
+
+    std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
     m_allocator.deallocate(order, order_size);
-    
-    // Update statistics
     m_active_orders--;
 }
 
