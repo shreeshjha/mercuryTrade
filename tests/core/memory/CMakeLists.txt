@@ -12,7 +12,7 @@ add_executable(mercAllocatorTest mercAllocatorTest.cpp)
 add_executable(mercAllocatorManagerTest mercAllocatorManagerTest.cpp)
 add_executable(mercMemoryTrackingTest mercMemoryTrackingTest.cpp)
 add_executable(mercMarketDataAllocatorTest mercMarketDataAllocatorTest.cpp)  
-
+add_executable(mercOrderBookAllocatorTest mercOrderBookAllocatorTest.cpp)
 
 # Link against the library
 target_link_libraries(mercAllocatorTest
@@ -35,9 +35,13 @@ target_link_libraries(mercMarketDataAllocatorTest
         mercury_memory
 )  
 
+target_link_libraries(mercOrderBookAllocatorTest 
+    PRIVATE 
+        mercury_memory)
 
 # Add tests to CTest
 add_test(NAME AllocatorTest COMMAND mercAllocatorTest)          # Changed test name
 add_test(NAME AllocatorManagerTest COMMAND mercAllocatorManagerTest)  # Different test name
 add_test(NAME MemoryTrackingTest COMMAND mercMemoryTrackingTest)
-add_test(NAME MarketDataAllocatorTest COMMAND mercMarketDataAllocatorTest)  # Add this line
+add_test(NAME MarketDataAllocatorTest COMMAND mercMarketDataAllocatorTest)  
+add_test(NAME OrderBookAllocatorTest COMMAND mercOrderBookAllocatorTest)

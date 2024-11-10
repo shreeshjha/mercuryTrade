@@ -4,7 +4,8 @@ add_library(mercury_memory
     mercAllocatorManager.cpp
     mercMemoryTracker.cpp
     mercMarketDataAllocator.cpp
-)
+    mercOrderBookAllocator.cpp
+  )
 
 target_include_directories(mercury_memory
     PUBLIC
