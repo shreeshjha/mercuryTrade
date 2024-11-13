@@ -67,28 +67,51 @@ OrderNode* OrderBookAllocator::allocateOrder() {
 void OrderBookAllocator::deallocateOrder(OrderNode* order) {
     if (!order) return;
 
-    // Remove from parent price level if exists
-    if (order->parent_level) {
-        if (order->parent_level->first_order == order) {
-            order->parent_level->first_order = order->next;
+    try {
+        // Safely remove from lookup map first
+        if (!order->order_id.empty()) {
+            m_order_map.erase(order->order_id);
         }
-        if (order->parent_level->last_order == order) {
-            order->parent_level->last_order = order->prev;
+
+        // Safely unlink from parent level
+        if (order->parent_level) {
+            if (order->parent_level->first_order == order) {
+                order->parent_level->first_order = order->next;
+            }
+            if (order->parent_level->last_order == order) {
+                order->parent_level->last_order = order->prev;
+            }
+            if (order->parent_level->order_count > 0) {
+                order->parent_level->order_count--;
+            }
+            order->parent_level->total_quantity -= order->quantity;
         }
-        order->parent_level->order_count--;
-        order->parent_level->total_quantity -= order->quantity;
+
+        // Safely update links
+        if (order->prev) {
+            order->prev->next = order->next;
+        }
+        if (order->next) {
+            order->next->prev = order->prev;
+        }
+
+        // Clear the order's pointers before deallocation
+        order->next = nullptr;
+        order->prev = nullptr;
+        order->parent_level = nullptr;
+
+        // Finally deallocate
+        std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
+        m_allocator.deallocate(order, order_size);
+        
+        if (m_active_orders > 0) {
+            m_active_orders--;
+        }
     }
-
-    // Update links
-    if (order->prev) order->prev->next = order->next;
-    if (order->next) order->next->prev = order->prev;
-
-    // Remove from lookup map before deallocating
-    m_order_map.erase(order->order_id);
-
-    std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
-    m_allocator.deallocate(order, order_size);
-    m_active_orders--;
+    catch (const std::exception& e) {
+        std::cerr << "Error in deallocateOrder: " << e.what() << std::endl;
+        throw;
+    }
 }
 
 PriceLevel* OrderBookAllocator::allocatePriceLevel() {
@@ -119,23 +142,39 @@ PriceLevel* OrderBookAllocator::allocatePriceLevel() {
 void OrderBookAllocator::deallocatePriceLevel(PriceLevel* level) {
     if (!level) return;
 
-    // Deallocate all orders at this price level first
-    OrderNode* current = level->first_order;
-    while (current) {
-        OrderNode* next = current->next;
-        deallocateOrder(current);
-        current = next;
+    try {
+        // First, safely deallocate all orders
+        while (level->first_order) {
+            OrderNode* order = level->first_order;
+            level->first_order = order->next;
+            deallocateOrder(order);
+        }
+
+        // Clear level's pointers
+        level->first_order = nullptr;
+        level->last_order = nullptr;
+        level->order_count = 0;
+        level->total_quantity = 0;
+
+        // Update links
+        if (level->prev) {
+            level->prev->next = level->next;
+        }
+        if (level->next) {
+            level->next->prev = level->prev;
+        }
+
+        // Finally deallocate
+        m_allocator.deallocate(level, sizeof(PriceLevel));
+        
+        if (m_active_price_levels > 0) {
+            m_active_price_levels--;
+        }
     }
-
-    //Update links
-    if(level->prev) level->prev->next = level->next;
-    if(level->next) level->next->prev = level->prev;
-
-    // Deallocate the price level itself
-    m_allocator.deallocate(level, sizeof(PriceLevel));
-    
-    // Update statistics
-    m_active_price_levels--;
+    catch (const std::exception& e) {
+        std::cerr << "Error in deallocatePriceLevel: " << e.what() << std::endl;
+        throw;
+    }
 }
 
 OrderNode* OrderBookAllocator::findOrder(const std::string& order_id) {
