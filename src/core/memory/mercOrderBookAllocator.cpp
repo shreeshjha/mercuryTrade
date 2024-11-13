@@ -127,6 +127,10 @@ void OrderBookAllocator::deallocatePriceLevel(PriceLevel* level) {
         current = next;
     }
 
+    //Update links
+    if(level->prev) level->prev->next = level->next;
+    if(level->next) level->next->prev = level->prev;
+
     // Deallocate the price level itself
     m_allocator.deallocate(level, sizeof(PriceLevel));
     
