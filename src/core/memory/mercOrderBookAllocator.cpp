@@ -69,7 +69,6 @@ OrderNode* OrderBookAllocator::allocateOrder() {
         return nullptr;
     }
 }
-
 void OrderBookAllocator::deallocateOrder(OrderNode* order) {
     if (!order) return;
 

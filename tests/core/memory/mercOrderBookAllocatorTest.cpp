@@ -175,6 +175,7 @@ void testPriceLevelManagement() {
         throw;
     }
 }
+
 // Test Concurrent Operations
 void testConcurrentOperations() {
     const char* TEST_NAME = "Concurrent Operations Test";
