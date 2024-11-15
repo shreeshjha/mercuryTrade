@@ -1,5 +1,6 @@
 #include "../../../include/mercuryTrade/core/memory/mercTransactionAllocator.hpp"
 #include <stdexcept>
+#include <algorithm> 
 
 namespace mercuryTrade{
     namespace core{
@@ -155,11 +156,18 @@ namespace mercuryTrade{
                 }
 
                 // Remove from active list
-                auto it = std::find(m_active_batch_list.begin(), 
+                /*auto it = std::find(m_active_batch_list.begin(), 
                 m_active_batch_list.end(), batch);
                 if (it != m_active_batch_list.end()) {
                     m_active_batch_list.erase(it);
-                }
+                }*/
+                
+                m_active_batch_list.erase(
+                    std::remove(m_active_batch_list.begin(),
+                                m_active_batch_list.end(),
+                                batch),
+                    m_active_batch_list.end()
+                );
 
                 // Clear batch data
                 batch->first_transaction = nullptr;
