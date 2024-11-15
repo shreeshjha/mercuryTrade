@@ -19,6 +19,7 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
     set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 endif()
+
 # Add the include directory to the include path
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
