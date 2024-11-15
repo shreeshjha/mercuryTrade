@@ -12,6 +12,14 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+#Add AddressSanitizer for memory debugging
+option(ENABLE_SANITIZERS "Enable AddressSanitizer for debugging" ON)
+if(ENABLE_SANITIZERS AND NOT MSVC)
+    message(STATUS "AddressSanitizer enabled")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
+    set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+endif()
+
 # Add the include directory to the include path
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
