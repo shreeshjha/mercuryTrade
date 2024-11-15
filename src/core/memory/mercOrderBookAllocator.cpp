@@ -75,7 +75,8 @@ void OrderBookAllocator::deallocateOrder(OrderNode* order) {
     try {
         // Safely remove from lookup map first
         if (!order->order_id.empty()) {
-            m_order_map.erase(order->order_id);
+          std::lock_guard<std::mutex> lock(m_order_map_mutex); //protect access  
+          m_order_map.erase(order->order_id);
         }
 
         // Safely unlink from parent level
@@ -193,19 +194,22 @@ void OrderBookAllocator::deallocatePriceLevel(PriceLevel* level) {
 }
 
 OrderNode* OrderBookAllocator::findOrder(const std::string& order_id) {
+    std::lock_guard<std::mutex> lock(m_order_map_mutex); //Protect access
     auto it = m_order_map.find(order_id);
     return (it != m_order_map.end()) ? it->second : nullptr;
 }
 
 void OrderBookAllocator::registerOrder(const std::string& order_id, OrderNode* order) {
     if (order) {
+        std::lock_guard<std::mutex> lock(m_order_map_mutex); //protect access
         order->order_id = order_id;
         m_order_map[order_id] = order;
     }
 }
 
-void OrderBookAllocator::unregisterOrder(const std::string& order_id) {
-    m_order_map.erase(order_id);
+void OrderBookAllocator::unregisterOrder(const std::string& order_id) {   
+  std::lock_guard<std::mutex> lock(m_order_map_mutex); // protect access
+  m_order_map.erase(order_id);
 }
 
 void OrderBookAllocator::reset() {

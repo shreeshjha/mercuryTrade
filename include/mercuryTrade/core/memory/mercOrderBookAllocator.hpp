@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <mutex>
 
 namespace mercuryTrade {
 namespace core {
@@ -96,6 +97,7 @@ private:
     
     // Fast lookup for order management
     std::unordered_map<std::string, OrderNode*> m_order_map;
+    std::mutex m_order_map_mutex; //Add mutex for protecting m_order_map
 
     // Helper method for memory calculation
     std::size_t calculateTotalMemoryUsed() const;
