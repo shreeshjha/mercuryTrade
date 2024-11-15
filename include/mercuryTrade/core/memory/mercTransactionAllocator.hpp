@@ -64,7 +64,7 @@ namespace mercuryTrade{
 
                     // Allow moving
                     transactionAllocator(transactionAllocator&&) noexcept;
-                    transactionAllocator& operator = (const transactionAllocator&) = delete;
+                    transactionAllocator& operator=(transactionAllocator&&) noexcept;
 
                     // Core transaction methods
                     transactionNode* beginTransaction();

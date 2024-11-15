@@ -61,12 +61,15 @@ void testPriceLevelManagement() {
     PriceLevel* level = nullptr;
 
     try {
-        // Allocate a price level
+        // Pre-reserve vector space to avoid reallocation
+        orders.reserve(5);
+        
+        // Allocate a price level with verification
         std::cout << "Allocating price level..." << std::endl;
         level = allocator.allocatePriceLevel();
         verify(level != nullptr, TEST_NAME, "Price level allocation failed");
         
-        // Initialize price level with safe defaults
+        // Initialize price level completely before use
         level->price = 100.0;
         level->total_quantity = 0.0;
         level->order_count = 0;
@@ -77,96 +80,115 @@ void testPriceLevelManagement() {
         
         std::cout << "Adding orders to price level..." << std::endl;
         
-        const int NUM_ORDERS = 5;
-        orders.reserve(NUM_ORDERS);  // Pre-allocate vector space
-
         // Add orders one by one with careful verification
-        for (int i = 0; i < NUM_ORDERS; ++i) {
+        for (int i = 0; i < 5; ++i) {
             std::cout << "Allocating order " << i << std::endl;
             
             // Allocate new order
             OrderNode* order = allocator.allocateOrder();
             verify(order != nullptr, TEST_NAME, "Order allocation failed");
             
-            std::cout << "Initializing order " << i << std::endl;
+            // Initialize order completely before any linking
+            order->price = 100.0;
+            order->quantity = 10.0;
+            order->next = nullptr;
+            order->prev = nullptr;
+            order->parent_level = nullptr;
             
             // Generate order ID first
             std::stringstream ss;
             ss << "ORDER" << i;
             order->order_id = ss.str();
             
-            // Initialize order
-            order->price = 100.0;
-            order->quantity = 10.0;
-            order->next = nullptr;
-            order->prev = nullptr;
-            order->parent_level = level;
-            
-            // Store order for cleanup
+            // Store in our tracking vector before any linking
             orders.push_back(order);
             
             std::cout << "Linking order " << i << " to price level" << std::endl;
             
-            // Link to price level
+            // Now safe to link to price level
+            order->parent_level = level;
+            
+            // Update price level links
             if (level->order_count == 0) {
                 level->first_order = order;
                 level->last_order = order;
             } else {
-                if (level->last_order) {
-                    order->prev = level->last_order;
-                    level->last_order->next = order;
-                    level->last_order = order;
-                }
+                // Verify last_order exists
+                verify(level->last_order != nullptr, TEST_NAME, 
+                      "Last order should not be null when order_count > 0");
+                
+                order->prev = level->last_order;
+                level->last_order->next = order;
+                level->last_order = order;
             }
             
             // Update price level stats
             level->order_count++;
             level->total_quantity += order->quantity;
             
-            // Register order
+            // Register order only after all initialization is complete
             std::cout << "Registering order " << i << std::endl;
             allocator.registerOrder(order->order_id, order);
             
-            // Verify after each order
+            // Verify state after each order
             verify(level->order_count == i + 1, TEST_NAME, 
                   "Order count mismatch after adding order");
         }
         
-        // Clean up
-        std::cout << "Starting cleanup..." << std::endl;
+        // Verify price level state
+        verify(level->order_count == 5, TEST_NAME, "Price level order count mismatch");
+        verify(level->total_quantity == 50.0, TEST_NAME, "Price level total quantity mismatch");
         
-        // First unregister all orders
-        for (auto* order : orders) {
+        std::cout << "Starting cleanup phase..." << std::endl;
+        
+        // First unregister all orders (in reverse order)
+        for (auto it = orders.rbegin(); it != orders.rend(); ++it) {
+            OrderNode* order = *it;
             if (order && !order->order_id.empty()) {
+                std::cout << "Unregistering order " << order->order_id << std::endl;
                 allocator.unregisterOrder(order->order_id);
             }
         }
         
-        // Then deallocate price level (which should handle the orders)
+        // Then deallocate the price level (which will handle the orders)
         if (level) {
+            std::cout << "Deallocating price level..." << std::endl;
             allocator.deallocatePriceLevel(level);
+            level = nullptr;
         }
         
-        // Verify final state
+        // Clear our tracking vector
+        orders.clear();
+        
+        std::cout << "Verifying final state..." << std::endl;
+        
+        // Verify cleanup
         auto stats = allocator.getStats();
         verify(stats.active_orders == 0, TEST_NAME, "Orders not properly deallocated");
         verify(stats.active_price_levels == 0, TEST_NAME, "Price level not properly deallocated");
         
         std::cout << TEST_NAME << " completed successfully" << std::endl;
-    }
-    catch (const std::exception& e) {
+        
+    } catch (const std::exception& e) {
         std::cerr << TEST_NAME << " failed with exception: " << e.what() << std::endl;
         
         // Emergency cleanup
-        for (auto* order : orders) {
-            if (order) {
-                try {
-                    allocator.unregisterOrder(order->order_id);
-                } catch (...) {}
+        if (!orders.empty()) {
+            std::cout << "Performing emergency cleanup of orders..." << std::endl;
+            for (auto* order : orders) {
+                if (order) {
+                    try {
+                        if (!order->order_id.empty()) {
+                            allocator.unregisterOrder(order->order_id);
+                        }
+                        // Don't directly deallocate orders, let price level handle it
+                    } catch (...) {}
+                }
             }
         }
         
         if (level) {
+            std::cout << "Performing emergency cleanup of price level..." << std::endl;
             try {
                 allocator.deallocatePriceLevel(level);
             } catch (...) {}
@@ -175,7 +197,6 @@ void testPriceLevelManagement() {
         throw;
     }
 }
-
 // Test Concurrent Operations
 void testConcurrentOperations() {
     const char* TEST_NAME = "Concurrent Operations Test";

@@ -139,16 +139,42 @@ namespace mercuryTrade{
                 m_batch_allocs++;
                 return batch;
             }
-            void transactionAllocator::deallocateBatch(transactionBatch* batch){
-                if (!batch) return;
+            void transactionAllocator::deallocateBatch(transactionBatch* batch) {
+            if (!batch) return;
+
+            try {
+                // First safely end all transactions in the batch
+                transactionNode* current = batch->first_transaction;
+                while (current) {
+                    transactionNode* next = current->next;
+                    if (!current->transaction_id.empty()) {
+                        unregisterTransaction(current->transaction_id);
+                     }
+                    // Store next before potentially invalidating current
+                    current = next;
+                }
+
                 // Remove from active list
-                auto it = std::find(m_active_batch_list.begin(),m_active_batch_list.end(),batch);
-                if (it != m_active_batch_list.end()){
+                auto it = std::find(m_active_batch_list.begin(), 
+                m_active_batch_list.end(), batch);
+                if (it != m_active_batch_list.end()) {
                     m_active_batch_list.erase(it);
                 }
-                m_allocator.deallocate(batch,sizeof(transactionBatch));
+
+                // Clear batch data
+                batch->first_transaction = nullptr;
+                batch->last_transaction = nullptr;
+                batch->used = 0;
+                batch->is_active = false;
+
+                m_allocator.deallocate(batch, sizeof(transactionBatch));
                 m_active_batches--;
             }
+            catch (const std::exception& e) {
+                std::cerr << "Error in deallocateBatch: " << e.what() << std::endl;
+                throw;
+            }
+        }
             transactionNode* transactionAllocator::findTransaction(const std::string& transaction_id){
                 auto it = m_transaction_map.find(transaction_id);
                 return (it != m_transaction_map.end()) ? it -> second : nullptr;

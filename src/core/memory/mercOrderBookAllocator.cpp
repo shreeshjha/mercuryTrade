@@ -148,28 +148,38 @@ void OrderBookAllocator::deallocatePriceLevel(PriceLevel* level) {
     if (!level) return;
 
     try {
-        // First, safely deallocate all orders
+        // First safely unlink and deallocate all orders
         while (level->first_order) {
             OrderNode* order = level->first_order;
             level->first_order = order->next;
-            deallocateOrder(order);
+            
+            // Unregister if necessary
+            if (!order->order_id.empty()) {
+                m_order_map.erase(order->order_id);
+            }
+            
+            // Clear order's links
+            order->next = nullptr;
+            order->prev = nullptr;
+            order->parent_level = nullptr;
+            
+            // Deallocate order
+            m_allocator.deallocate(order, sizeof(OrderNode));
+            
+            if (m_active_orders > 0) {
+                m_active_orders--;
+            }
         }
 
         // Clear level's pointers
         level->first_order = nullptr;
         level->last_order = nullptr;
+        level->next = nullptr;
+        level->prev = nullptr;
         level->order_count = 0;
         level->total_quantity = 0;
 
-        // Update links
-        if (level->prev) {
-            level->prev->next = level->next;
-        }
-        if (level->next) {
-            level->next->prev = level->prev;
-        }
-
-        // Finally deallocate
+        // Finally deallocate the level itself
         m_allocator.deallocate(level, sizeof(PriceLevel));
         
         if (m_active_price_levels > 0) {
