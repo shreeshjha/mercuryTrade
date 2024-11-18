@@ -51,6 +51,8 @@ namespace mercuryTrade{
 
                     allocationStats getStats() const;
 
+                    bool hasCapacity() const noexcept;
+
                     // Default config
                     static bufferConfig getDefaultConfig(){
                         return bufferConfig{

@@ -75,12 +75,12 @@ std::vector<MemoryTracker::AllocationInfo> MemoryTracker::getActiveAllocations()
     return active;
 }
 
-void MemoryTracker::detectLeaks() const {
+void MemoryTracker::detectLeaks() const noexcept {
     std::lock_guard<std::mutex> lock(m_mutex);
     bool leaksFound = false;
     
     for (const auto& pair : m_allocations) {
-        if (pair.second.isActive) {
+        if (pair.second.isActive && pair.second.file != nullptr) {
             if (!leaksFound) {
                 std::cout << "\nMemory leaks detected:\n";
                 leaksFound = true;

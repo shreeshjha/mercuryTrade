@@ -48,6 +48,7 @@ void AllocatorManager::initializePools() {
 
 AllocatorManager::~AllocatorManager() noexcept {
   //Check for leaks when allocator manager is destroyed
+  cleanup();
   checkForLeaks();
 }
 

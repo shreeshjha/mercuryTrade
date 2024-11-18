@@ -16,12 +16,17 @@ namespace memory {
 class MemoryTracker {
 public:
     struct AllocationInfo {
-        std::size_t size;
+        std::size_t size{0};
         std::chrono::steady_clock::time_point timestamp;
-        const char* file;  // Source file where allocation occurred
-        int line;         // Line number where allocation occurred
-        bool isActive;    // Whether this allocation is still active
+        const char* file{nullptr};  // Source file where allocation occurred
+        int line{0};         // Line number where allocation occurred
+        bool isActive{false};    // Whether this allocation is still active
     };
+
+    void cleanup() noexcept{
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_allocations.clear();
+    }
 
     struct MemoryStats {
         std::size_t totalAllocations;      // Total number of allocations
@@ -42,7 +47,7 @@ public:
     // Statistics and reporting
     MemoryStats getStats() const;
     std::vector<AllocationInfo> getActiveAllocations() const;
-    void detectLeaks() const;
+    void detectLeaks() const noexcept;
     void printReport() const;
 
     // Reset tracking

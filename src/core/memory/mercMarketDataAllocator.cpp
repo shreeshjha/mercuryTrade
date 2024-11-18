@@ -48,6 +48,13 @@ namespace mercuryTrade{
                 m_allocator.deallocate(ptr,size);
             }
 
+            bool marketDataAllocator::hasCapacity() const noexcept {
+                auto stats = getStats();
+                return (stats.quotes_allocated < m_config.buffer_capacity &&
+                        stats.trades_allocated < m_config.buffer_capacity &&
+                        stats.snapshots_allocated < m_config.buffer_capacity);
+            }
+
             marketDataAllocator::allocationStats marketDataAllocator::getStats() const{
                 allocationStats stats;
                 stats.quotes_allocated = m_quotes_allocated.load(std::memory_order_relaxed);

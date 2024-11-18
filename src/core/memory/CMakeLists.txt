@@ -6,6 +6,7 @@ add_library(mercury_memory
     mercMarketDataAllocator.cpp
     mercOrderBookAllocator.cpp
     mercTransactionAllocator.cpp
+    mercTradingManager.cpp
   )
 
 target_include_directories(mercury_memory

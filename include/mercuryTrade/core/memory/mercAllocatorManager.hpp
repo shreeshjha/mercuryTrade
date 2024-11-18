@@ -21,6 +21,11 @@ private:
       : block_size(size)
       , allocator(std::make_unique<FixedAllocator>(pool_size)) {}
   };
+  void cleanup() noexcept{
+    try{
+      m_tracker.cleanup();
+    }catch(...){}
+  }
 
   // Predefined block sizes (powers of 2 for simplicity)
   static constexpr std::size_t MIN_BLOCK_SIZE = 8; // Minimum block size

@@ -42,20 +42,43 @@ OrderBookAllocator::~OrderBookAllocator() noexcept {
 }
 
 OrderNode* OrderBookAllocator::allocateOrder() {
+    // if (m_active_orders.load(std::memory_order_relaxed) >= m_config.max_orders) {
+    //     return nullptr;
+    // }
+
+    // try {
+    //     // Allocate memory for the order
+    //     std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
+    //     void* memory = m_allocator.allocate(order_size);
+    //     if (!memory) return nullptr;
+
+    //     // Properly construct the OrderNode
+    //     OrderNode* node = new (memory) OrderNode();  // Placement new
+        
+    //     // Initialize all fields to safe defaults
+    //     node->price = 0.0;
+    //     node->quantity = 0.0;
+    //     node->order_id.clear();
+    //     node->next = nullptr;
+    //     node->prev = nullptr;
+    //     node->parent_level = nullptr;
+        
+    //     m_active_orders.fetch_add(1, std::memory_order_release);
+    //     return node;
+    // } catch (...) {
+    //     return nullptr;
+    // }
     if (m_active_orders.load(std::memory_order_relaxed) >= m_config.max_orders) {
         return nullptr;
     }
 
     try {
-        // Allocate memory for the order
+        // Use the pre-allocated pool instead of allocating new memory
         std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
-        void* memory = m_allocator.allocate(order_size);
-        if (!memory) return nullptr;
-
-        // Properly construct the OrderNode
-        OrderNode* node = new (memory) OrderNode();  // Placement new
+        void* memory = static_cast<char*>(m_order_pool) + 
+                      (m_active_orders.load(std::memory_order_relaxed) * order_size);
         
-        // Initialize all fields to safe defaults
+        OrderNode* node = new (memory) OrderNode();
         node->price = 0.0;
         node->quantity = 0.0;
         node->order_id.clear();
