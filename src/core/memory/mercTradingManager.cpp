@@ -8,13 +8,13 @@ namespace mercuryTrade{
     namespace core{
         namespace memory{
             tradingManager::tradingManager(const Config& config)
-            : m_config(config)
-            , m_status(Status::STARTING)
-            , m_order_allocator(OrderBookAllocator::Config::getDefaultConfig())
-            , m_market_data_allocator()
-            , m_transaction_allocator(transactionAllocator::Config::getDefaultConfig())  // Explicit initialization
-            , m_metrics(std::make_unique<performanceMetrics>())
-              // Add this member variable
+             : m_config(config)
+             , m_status(Status::STARTING)
+             , m_order_allocator(OrderBookAllocator::Config::getDefaultConfig())
+             , m_market_data_allocator()
+             , m_transaction_allocator(transactionAllocator::Config::getDefaultConfig())
+             , m_metrics(std::make_unique<performanceMetrics>())
+             , m_current_transaction(nullptr)             // Add this member variable
             {
                 if (config.max_orders == 0 || config.max_symbols == 0) {
                     throw std::invalid_argument("Invalid trading configuration");
@@ -33,6 +33,16 @@ namespace mercuryTrade{
                         if (m_status == Status::RUNNING){
                             stop();
                         }
+
+                        // Clean up any remaining transactions
+                     {
+                        std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+                        for (auto& pair : m_thread_transactions) {
+                          m_transaction_allocator.endTransaction(pair.second);
+                        }
+                        m_thread_transactions.clear();
+                     }
+
                         m_metrics.reset();
                         cleanupResources();
                     }catch(...){
@@ -40,39 +50,103 @@ namespace mercuryTrade{
                 }
             }
 
-            bool tradingManager::beginTransaction(){
-                if (m_status != Status::RUNNING){
-                    return false;
-                }
-                try{
-                    m_pending_transactions++;
-                    return m_transaction_allocator.beginTransaction() != nullptr;
-                }catch(...){
-                    m_pending_transactions--;
-                    return false;
-                }
+            bool tradingManager::beginTransaction() {
+    std::lock_guard<std::mutex> lock(m_transaction_mutex);
+    
+    if (m_status != Status::RUNNING) {
+        return false;
+    }
+    
+    try {
+        auto thread_id = std::this_thread::get_id();
+        
+        // Check if thread already has a transaction
+        {
+            std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+            if (m_thread_transactions.find(thread_id) != m_thread_transactions.end()) {
+                return false;
             }
+        }
+        
+        auto* transaction = m_transaction_allocator.beginTransaction();
+        if (!transaction) {
+            return false;
+        }
 
-            bool tradingManager::commitTransaction(){
-                try{
-                    if (m_pending_transactions > 0){
-                        m_pending_transactions--;
-                    }
-                    return m_transaction_allocator.commitTransaction(nullptr);
-                } catch (...){
-                    return false;
-                }
+        std::string transaction_id = "TX_" + std::to_string(m_pending_transactions.load()) + 
+                                   "_" + std::to_string(std::hash<std::thread::id>{}(thread_id));
+        
+        {
+            std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+            m_transaction_allocator.registerTransaction(transaction_id, transaction);
+            m_thread_transactions[thread_id] = static_cast<transactionNode*>(transaction);
+        }
+        
+        m_pending_transactions++;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+         bool tradingManager::commitTransaction() {
+    std::lock_guard<std::mutex> lock(m_transaction_mutex);
+    
+    try {
+        auto thread_id = std::this_thread::get_id();
+        transactionNode* txNode = nullptr;
+        
+        {
+            std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+            auto it = m_thread_transactions.find(thread_id);
+            if (it == m_thread_transactions.end()) {
+                return false;
             }
+            txNode = it->second;
+            m_thread_transactions.erase(it);
+        }
+        
+        if (!txNode || txNode->status != transactionAllocator::transactionStatus::PENDING) {
+            return false;
+        }
 
-
+        bool success = m_transaction_allocator.commitTransaction(txNode);
+        if (success) {
+            m_transaction_allocator.endTransaction(txNode);
+            if (m_pending_transactions > 0) {
+                m_pending_transactions--;
+            }
+        }
+        return success;
+    } catch (...) {
+        return false;
+    }
+}
+ 
             bool tradingManager::rollbackTransaction(){
-                try{
-                    if (m_pending_transactions > 0){
-                        m_pending_transactions--;
+                std::lock_guard<std::mutex> lock(m_transaction_mutex);
+    
+                try {
+                  if (!m_current_transaction) {
+                      return false;
+                  }
+
+                  auto* txNode = static_cast<transactionNode*>(m_current_transaction);
+                  bool success = m_transaction_allocator.rollbackTransaction(txNode);
+                  if (success) {
+                    auto thread_id = std::this_thread::get_id();
+                    m_thread_transactions.erase(thread_id);
+                    m_transaction_allocator.endTransaction(txNode);
+                    m_current_transaction = nullptr;
+            
+                    if (m_pending_transactions > 0) {
+                      m_pending_transactions--;
                     }
-                    return m_transaction_allocator.rollbackTransaction(nullptr);
-                } catch(...){
-                    return false;
+                  }
+                  return success;
+                } catch (const std::exception& e) {
+                    std::cout << "Exception in rollbackTransaction: " << e.what() << std::endl;
+                  return false;
                 }
             }
 
@@ -195,96 +269,69 @@ namespace mercuryTrade{
             //         return false; 
             //     }
             // }
-            bool tradingManager::submitOrder(const order& ord) {
-                std::cout << "Starting submitOrder..." << std::endl;
-                
-                if (m_status != Status::RUNNING) {
-                    std::cout << "Failed: Trading system not running. Status: " << static_cast<int>(m_status) << std::endl;
-                    return false;
-                }
-                
-                if (!validateOrder(ord)) {
-                    std::cout << "Failed: Order validation failed" << std::endl;
-                    return false;
-                }
-                
-                auto start_time = std::chrono::high_resolution_clock::now();
-                try {
-                    std::cout << "Attempting to begin transaction..." << std::endl;
-                    if (m_config.enable_transactions) {
-                        if (!beginTransaction()) {
-                            std::cout << "Failed: Could not begin transaction" << std::endl;
-                            return false;
-                        }
-                        std::cout << "Transaction begun successfully" << std::endl;
-                    }
-
-                    std::cout << "Attempting to allocate order memory..." << std::endl;
-                    OrderNode* order_node = m_order_allocator.allocateOrder();
-                    if (!order_node) {
-                        std::cout << "Failed: Could not allocate order memory" << std::endl;
-                        if (m_config.enable_transactions) {
-                            rollbackTransaction();
-                        }
-                        return false;
-                    }
-                    std::cout << "Order memory allocated successfully" << std::endl;
-
-                    // Populate order node
-                    order_node->price = ord.price;
-                    order_node->quantity = ord.quantity;
-                    m_order_allocator.registerOrder(ord.order_id, order_node);
-                    std::cout << "Order node populated and registered" << std::endl;
-
-                    try {
-                        std::cout << "Updating order book for symbol: " << ord.symbol << std::endl;
-                        updateOrderBook(ord.symbol);
-                        std::cout << "Order book updated successfully" << std::endl;
-                    } catch (const std::exception& e) {
-                        std::cout << "Exception in updateOrderBook: " << e.what() << std::endl;
-                        m_order_allocator.deallocateOrder(order_node);
-                        if (m_config.enable_transactions) {
-                            rollbackTransaction();
-                        }
-                        return false;
-                    }
-
-                    // Update metrics
-                    m_active_orders++;
-                    auto end_time = std::chrono::high_resolution_clock::now();
-                    auto latency = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-                    updateMetrics(static_cast<double>(latency));
-                    std::cout << "Metrics updated" << std::endl;
-
-                    if (m_config.enable_transactions) {
-                        std::cout << "Committing transaction..." << std::endl;
-                        if (!commitTransaction()) {
-                            std::cout << "Failed: Could not commit transaction" << std::endl;
-                            m_order_allocator.deallocateOrder(order_node);
-                            return false;
-                        }
-                        std::cout << "Transaction committed successfully" << std::endl;
-                    }
-                    
-                    std::cout << "Order submission completed successfully" << std::endl;
-                    return true;
-                    
-                } catch (const std::exception& e) {
-                    std::cout << "Exception in submitOrder: " << e.what() << std::endl;
-                    if (m_config.enable_transactions) {
-                        rollbackTransaction();
-                    }
-                    return false;
-                } catch (...) {
-                    std::cout << "Unknown exception in submitOrder" << std::endl;
-                    if (m_config.enable_transactions) {
-                        rollbackTransaction();
-                    }
-                    return false;
-                }
+               bool tradingManager::submitOrder(const order& ord) {
+    if (m_status != Status::RUNNING) {
+        return false;
+    }
+    
+    if (!validateOrder(ord)) {
+        return false;
+    }
+    
+    try {
+        if (m_config.enable_transactions) {
+            if (!beginTransaction()) {
+                return false;
             }
+        }
+        
+        OrderNode* order_node = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(m_order_mutex);
+            order_node = m_order_allocator.allocateOrder();
+        }
+        
+        if (!order_node) {
+            if (m_config.enable_transactions) {
+                rollbackTransaction();
+            }
+            return false;
+        }
 
-            void tradingManager::handleMarketData(const marketData& data){
+        order_node->price = ord.price;
+        order_node->quantity = ord.quantity;
+        m_order_allocator.registerOrder(ord.order_id, order_node);
+
+        try {
+            updateOrderBook(ord.symbol);
+        } catch (...) {
+            m_order_allocator.deallocateOrder(order_node);
+            if (m_config.enable_transactions) {
+                rollbackTransaction();
+            }
+            return false;
+        }
+
+        m_active_orders++;
+        
+        if (m_config.enable_transactions) {
+            if (!commitTransaction()) {
+                m_order_allocator.deallocateOrder(order_node);
+                return false;
+            }
+        }
+        return true;
+    } catch (...) {
+        if (m_config.enable_transactions) {
+            rollbackTransaction();
+        }
+        return false;
+    }
+}        
+
+
+    
+              void tradingManager::handleMarketData(const marketData& data){
                 if (m_status != Status::RUNNING) return;
 
                 auto start_time = std::chrono::high_resolution_clock::now();
@@ -313,16 +360,28 @@ namespace mercuryTrade{
                 return true;
             }
 
-            bool tradingManager::stop(){
-                if (m_status != Status::RUNNING && m_status != Status::PAUSED){
-                    return false;
-                }
-                m_status = Status::STOPPING;
-                cleanupResources();
-                m_status = Status::STARTING;
-                return true;
-            }
-
+            bool tradingManager::stop() {
+    if (m_status != Status::RUNNING && m_status != Status::PAUSED) {
+        return false;
+    }
+    
+    std::lock_guard<std::mutex> lock(m_transaction_mutex);
+    m_status = Status::STOPPING;
+    
+    // Clean up any pending transactions
+    {
+        std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+        for (auto& pair : m_thread_transactions) {
+            m_transaction_allocator.rollbackTransaction(pair.second);
+            m_transaction_allocator.endTransaction(pair.second);
+        }
+        m_thread_transactions.clear();
+    }
+    
+    cleanupResources();
+    m_status = Status::STARTING;
+    return true;
+}
             bool tradingManager::pause(){
                 if (m_status != Status::RUNNING){
                     return false;

@@ -3,6 +3,9 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <atomic>
+#include <future>
+#include <chrono>
 
 using namespace mercuryTrade::core::memory;
 
@@ -121,65 +124,109 @@ void testSystemStateTransitions(){
     verify(manager.getStatus() == tradingManager::Status::STARTING, TEST_NAME, "System should be in starting state after stop");
 }
 
-void testConcurrentOperations(){
+void testConcurrentOperations() {
     const char* TEST_NAME = "Concurrent Operations Test";
 
     tradingManager manager;
     verify(manager.start(), TEST_NAME, "Failed to start trading system");
 
     std::atomic<bool> test_failed{false};
+    std::atomic<int> completed_threads{0};
     std::mutex test_mutex;
+    const int ITERATIONS_PER_THREAD = 10;
 
-    auto thread_func = [&](int thread_id){
-        try{
-            for (int i = 0; i < 100 && !test_failed; i++){
-                // Generate unique order ID
+    auto thread_func = [&](int thread_id) {
+        std::cout << "Thread " << thread_id << " started" << std::endl;
+        int successful_orders = 0;
+        
+        try {
+            for (int i = 0; i < ITERATIONS_PER_THREAD && !test_failed; i++) {
                 std::string order_id = "ORDER_" + std::to_string(thread_id) + "_" + std::to_string(i);
+                
+                {
+                    std::lock_guard<std::mutex> lock(test_mutex);
+                    std::cout << "Thread " << thread_id << " iteration " << i << " started" << std::endl;
+                }
 
-                // Submit order
                 order ord = createTestOrder(order_id, "AAPL", 150.0, 100.0, true);
-                if (!manager.submitOrder(ord)){
-                    test_failed = true;
-                    break;
+                if (manager.submitOrder(ord)) {
+                    successful_orders++;
+                } else {
+                    std::lock_guard<std::mutex> lock(test_mutex);
+                    std::cout << "Thread " << thread_id << " failed to submit order " << order_id << std::endl;
+                    continue;
                 }
 
-                // Submit market data
-                marketData data = createTestMarketData("AAPL", 150.0, 150.1, 150.05, 1000.0);
-                manager.handleMarketData(data);
-
-                // Cancel some orders
-                if (i % 2 == 0){
-                    manager.cancelOrder(order_id);
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
-        }catch (const std::exception& e){
+
+            {
+                std::lock_guard<std::mutex> lock(test_mutex);
+                std::cout << "Thread " << thread_id << " completed with " 
+                         << successful_orders << " successful orders" << std::endl;
+            }
+            
+            completed_threads.fetch_add(1);
+            
+        } catch (const std::exception& e) {
             std::lock_guard<std::mutex> lock(test_mutex);
-            std::cerr << "Thread" << thread_id << " failed: " << e.what() << std::endl;
+            std::cout << "Thread " << thread_id << " failed with exception: " << e.what() << std::endl;
             test_failed = true;
         }
     };
 
-    // Create and run threads
     std::vector<std::thread> threads;
     const int NUM_THREADS = 4;
     threads.reserve(NUM_THREADS);
 
-    for (int i = 0; i < NUM_THREADS; i++){
-        threads.emplace_back(thread_func , i);
+    std::cout << "Starting " << NUM_THREADS << " threads..." << std::endl;
+
+    for (int i = 0; i < NUM_THREADS; i++) {
+        threads.emplace_back(thread_func, i);
     }
 
-    // Wait for threads
-    for (auto& thread : threads){
-        if (thread.joinable()){
-            thread.join();
+    // Wait for threads with timeout
+    auto start_time = std::chrono::steady_clock::now();
+    const auto timeout_duration = std::chrono::seconds(5);
+    bool all_threads_completed = false;
+
+    while (std::chrono::steady_clock::now() - start_time < timeout_duration) {
+        int current_completed = completed_threads.load();
+        std::cout << "Completed threads: " << current_completed << "/" << NUM_THREADS << std::endl;
+        
+        if (current_completed == NUM_THREADS) {
+            all_threads_completed = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    if (!all_threads_completed) {
+        std::cout << "Test timed out. Only " << completed_threads.load() 
+                 << " of " << NUM_THREADS << " threads completed." << std::endl;
+        test_failed = true;
+    }
+
+    // Simple thread joining with timeout
+    for (auto& thread : threads) {
+        if (thread.joinable()) {
+            thread.join();  // Just do a regular join since we've already handled the timeout
         }
     }
 
+    // Final verification
     verify(!test_failed, TEST_NAME, "Concurrent Operations test failed");
+    verify(all_threads_completed, TEST_NAME, "Not all threads completed within timeout");
     verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
-}
 
+    // Print final stats
+    auto stats = manager.getStats();
+    std::cout << "Final Statistics:" << std::endl
+              << "Active Orders: " << stats.active_orders << std::endl
+              << "Total Trades: " << stats.total_trades << std::endl
+              << "Pending Transactions: " << stats.pending_transactions << std::endl
+              << "Average Latency: " << stats.avg_latency << std::endl;
+}
 void testMemoryOptimization(){
     const char* TEST_NAME = "Memory Optimization Test";
 

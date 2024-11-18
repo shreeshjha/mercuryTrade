@@ -9,6 +9,8 @@
 #include <atomic>
 #include <memory>
 #include <vector>
+#include <mutex>
+#include <thread>
 
 namespace mercuryTrade{
     namespace core{
@@ -106,6 +108,17 @@ namespace mercuryTrade{
                     marketDataAllocator m_market_data_allocator{};
                     transactionAllocator m_transaction_allocator{};
 
+                    // Transaction tracking
+                    void* m_current_transaction{nullptr};
+                    std::mutex m_transaction_mutex;
+                    std::unordered_map<std::thread::id, transactionNode*> m_thread_transactions;
+                    std::mutex m_thread_transactions_mutex;
+
+                    // Resource mutexes
+                    std::mutex m_order_mutex;
+                    std::mutex m_market_data_mutex;
+                    std::mutex m_metrics_mutex;
+
                     // System Statistics
                     std::atomic<std::size_t> m_active_orders{0};
                     std::atomic<std::size_t> m_total_trades{0};
@@ -163,10 +176,5 @@ namespace mercuryTrade{
         }
     }
 }
-
-
-
-
-
 
 #endif
