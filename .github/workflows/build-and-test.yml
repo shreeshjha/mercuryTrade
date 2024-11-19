@@ -64,3 +64,24 @@ jobs:
       with:
         name: asan-logs
         path: build/asan.log
+    - name: Run Tests with Detailed Logs
+      env:
+        ASAN_OPTIONS: "detect_leaks=1:log_path=asan.log:verbosity=1"
+      run: |
+        cd build
+        ctest --output-on-failure --verbose || ctest --rerun-failed --output-on-failure --verbose
+
+    - name: Upload CTest Logs
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: ctest-logs
+        path: build/Testing/Temporary/LastTest.log
+
+    - name: Upload AddressSanitizer Logs
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: asan-logs
+        path: build/asan.log
+
