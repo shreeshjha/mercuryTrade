@@ -3,7 +3,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <vector>
-
+#include <unordered_set>
+#include <set>
 namespace mercuryTrade {
   namespace core {
     namespace memory {
@@ -52,6 +53,29 @@ AllocatorManager::~AllocatorManager() noexcept {
   checkForLeaks();
 }
 
+//cleanup method
+void AllocatorManager::cleanup() noexcept {
+    try {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto activeAllocations = m_tracker.getActiveAllocations();
+        
+        for (const auto& alloc : activeAllocations) {
+            if (!alloc.isActive) continue;
+            
+            void* ptr = m_tracker.findPointerForAllocation(alloc);
+            if (!ptr) continue;
+            
+            if (alloc.size > MAX_BLOCK_SIZE) {
+                ::operator delete(ptr, std::nothrow);
+            }
+            m_tracker.trackDeallocation(ptr);
+        }
+        
+        // Clear pools
+        m_pools.clear();
+        m_tracker.reset();
+    } catch (...) {}
+}
 //Core allocation method 
 void * AllocatorManager::allocate(std::size_t size, const char* file, int line) {
   if(size > MAX_BLOCK_SIZE) {

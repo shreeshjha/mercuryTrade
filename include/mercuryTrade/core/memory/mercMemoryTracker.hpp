@@ -28,6 +28,18 @@ public:
         m_allocations.clear();
     }
 
+    std::vector<AllocationInfo> getLeaks() const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        std::vector<AllocationInfo> leaks;
+        for (const auto& pair : m_allocations) {
+            if (pair.second.isActive) {
+                leaks.push_back(pair.second);
+            }
+        }
+        return leaks;
+    }
+    void* findPointerForAllocation(const AllocationInfo& info) const; 
+
     struct MemoryStats {
         std::size_t totalAllocations;      // Total number of allocations
         std::size_t activeAllocations;     // Current number of active allocations
@@ -52,6 +64,9 @@ public:
 
     // Reset tracking
     void reset();
+
+  //void* findPointerForAllocation(const AllocationInfo& info) const;
+    const std::unordered_map<void*, AllocationInfo>& getAllocationMap() const;
 
 private:
     MemoryTracker() = default;

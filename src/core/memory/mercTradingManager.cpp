@@ -27,30 +27,38 @@ namespace mercuryTrade{
                 }
             }
 
-            tradingManager::~tradingManager() noexcept {
-                if (m_metrics){
-                    try{
-                        if (m_status == Status::RUNNING){
-                            stop();
-                        }
-
-                        // Clean up any remaining transactions
-                     {
-                        std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
-                        for (auto& pair : m_thread_transactions) {
-                          m_transaction_allocator.endTransaction(pair.second);
-                        }
-                        m_thread_transactions.clear();
-                     }
-
-                        m_metrics.reset();
-                        cleanupResources();
-                    }catch(...){
-                    }
+        tradingManager::~tradingManager() noexcept {
+    try {
+        if (m_status == Status::RUNNING) {
+            stop();
+        }
+        
+        // Clean up transactions first
+        {
+            std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+            for (auto& pair : m_thread_transactions) {
+                if (pair.second) {
+                    m_transaction_allocator.rollbackTransaction(pair.second);
+                    m_transaction_allocator.endTransaction(pair.second);
                 }
             }
+            m_thread_transactions.clear();
+        }
+        
+        m_metrics.reset();
+        cleanupResources();
+        
+        // Let the allocators clean up their own resources naturally
+        // through their destructors
+        
+    } catch (...) {
+        // Ensure no exceptions escape
+    }
+}
 
-            bool tradingManager::beginTransaction() {
+
+
+bool tradingManager::beginTransaction() {
     std::lock_guard<std::mutex> lock(m_transaction_mutex);
     
     if (m_status != Status::RUNNING) {

@@ -21,19 +21,27 @@ namespace mercuryTrade{
                 m_batch_pool = m_allocator.allocate(sizeof(transactionBatch) * config.max_batches);
             }
 
-            transactionAllocator::~transactionAllocator() noexcept{
-                try{
-                    reset();
-                    if (m_transaction_pool){
-                        std::size_t transaction_size = sizeof(transactionNode) + m_config.transaction_data_size;
-                        m_allocator.deallocate(m_transaction_pool,transaction_size * m_config.max_transactions);
-                    }
-                    if (m_batch_pool){
-                        m_allocator.deallocate(m_batch_pool,sizeof(transactionBatch) * m_config.max_batches);
-                    }
-                } catch(...){}
-            }
-
+            transactionAllocator::~transactionAllocator() noexcept {
+    try {
+        reset();  // Clean up all active transactions
+        
+        if (m_transaction_pool) {
+            std::size_t transaction_size = sizeof(transactionNode) + m_config.transaction_data_size;
+            m_allocator.deallocate(m_transaction_pool, transaction_size * m_config.max_transactions);
+            m_transaction_pool = nullptr;
+        }
+        
+        if (m_batch_pool) {
+            m_allocator.deallocate(m_batch_pool, sizeof(transactionBatch) * m_config.max_batches);
+            m_batch_pool = nullptr;
+        }
+        
+        // Clear containers
+        m_transaction_map.clear();
+        m_active_batch_list.clear();
+    } catch (...) {
+    }
+}
             transactionNode* transactionAllocator::beginTransaction(){
                 if (m_active_transactions.load(std::memory_order_relaxed) >= m_config.max_transactions) return nullptr;
                 transactionNode* node = nullptr;

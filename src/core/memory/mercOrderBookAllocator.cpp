@@ -25,20 +25,12 @@ OrderBookAllocator::OrderBookAllocator(const Config& config)
 OrderBookAllocator::~OrderBookAllocator() noexcept {
     try {
         reset();  // Clean up all allocations
-        
-        // Deallocate pools
-        if (m_order_pool) {
-            m_allocator.deallocate(m_order_pool, 
-                (sizeof(OrderNode) + m_config.order_data_size) * m_config.max_orders);
-        }
-        
-        if (m_price_level_pool) {
-            m_allocator.deallocate(m_price_level_pool, 
-                sizeof(PriceLevel) * m_config.max_price_levels);
-        }
-    } catch (...) {
-        // Ensure no exceptions escape destructor
-    }
+        m_order_map.clear();
+        // Do NOT deallocate m_order_pool and m_price_level_pool here
+        // Let AllocatorManager handle it
+        m_order_pool = nullptr;
+        m_price_level_pool = nullptr;
+    } catch (...) {}
 }
 
 OrderNode* OrderBookAllocator::allocateOrder() {

@@ -36,6 +36,25 @@ void MemoryTracker::trackAllocation(void* ptr, std::size_t size, const char* fil
     m_peakBytesInUse = std::max(m_peakBytesInUse.load(), m_currentBytesInUse.load());
 }
 
+void* MemoryTracker::findPointerForAllocation(const AllocationInfo& info) const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    for (const auto& pair : m_allocations) {
+        if (pair.second.size == info.size &&
+            pair.second.file == info.file &&
+            pair.second.line == info.line &&
+            pair.second.isActive == info.isActive) {
+            return pair.first;
+        }
+    }
+    return nullptr;
+}
+
+// And expose m_allocations through a getter:
+const std::unordered_map<void*, MemoryTracker::AllocationInfo>& 
+MemoryTracker::getAllocationMap() const {
+    return m_allocations;
+}
+
 void MemoryTracker::trackDeallocation(void* ptr) {
     if (!ptr) return;
 

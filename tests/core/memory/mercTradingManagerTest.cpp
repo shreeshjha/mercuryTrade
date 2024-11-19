@@ -218,7 +218,6 @@ void testConcurrentOperations() {
     verify(!test_failed, TEST_NAME, "Concurrent Operations test failed");
     verify(all_threads_completed, TEST_NAME, "Not all threads completed within timeout");
     verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
-
     // Print final stats
     auto stats = manager.getStats();
     std::cout << "Final Statistics:" << std::endl
@@ -226,6 +225,7 @@ void testConcurrentOperations() {
               << "Total Trades: " << stats.total_trades << std::endl
               << "Pending Transactions: " << stats.pending_transactions << std::endl
               << "Average Latency: " << stats.avg_latency << std::endl;
+    std::cout << "Test completed and resources cleaned up" << std::endl;
 }
 void testMemoryOptimization(){
     const char* TEST_NAME = "Memory Optimization Test";

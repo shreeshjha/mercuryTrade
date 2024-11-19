@@ -21,11 +21,7 @@ private:
       : block_size(size)
       , allocator(std::make_unique<FixedAllocator>(pool_size)) {}
   };
-  void cleanup() noexcept{
-    try{
-      m_tracker.cleanup();
-    }catch(...){}
-  }
+  void cleanup() noexcept;
 
   // Predefined block sizes (powers of 2 for simplicity)
   static constexpr std::size_t MIN_BLOCK_SIZE = 8; // Minimum block size
@@ -40,6 +36,7 @@ private:
   std::size_t roundUpToNextPowerOf2(std::size_t size) const;
 
   void initializePools();
+  void checkForLeaks() const;
 
 public:
   //Constructor  needs to initialize the reference member
@@ -50,7 +47,7 @@ public:
 
   //Prevent copying 
   AllocatorManager(const AllocatorManager&) = delete;
-  AllocatorManager& operator = (const AllocatorManager&) = delete;
+  AllocatorManager& operator = (const AllocatorManager&) noexcept = delete;
 
   //Allow moving
   AllocatorManager(AllocatorManager&&) noexcept = default;
@@ -59,9 +56,9 @@ public:
   void* allocate(std::size_t size, const char* file = nullptr, int line = 0);
   void deallocate(void* ptr, std::size_t size);
 
-  //Memory Tracking methods
+    //Memory Tracking methods
   void printMemoryReport() const;
-  void checkForLeaks() const;
+  //void checkForLeaks() const;
   MemoryTracker::MemoryStats getMemoryStats() const;
 
   //Utility methods
