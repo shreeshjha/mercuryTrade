@@ -2,9 +2,9 @@ name: Build and Test
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
 
 jobs:
   build-linux:
@@ -13,16 +13,16 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Log System Information
+    - name: Log Environment Details
       run: |
         uname -a
         g++ --version
         cmake --version
 
-    - name: Install dependencies
+    - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake g++-12 build-essential libasan6
+        sudo apt-get install -y cmake g++-12 build-essential
 
     - name: Create Build Directory
       run: mkdir build
@@ -30,27 +30,26 @@ jobs:
     - name: Configure CMake
       run: |
         cd build
-        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" -DCMAKE_BUILD_TYPE=Debug ..
+        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" -DCMAKE_BUILD_TYPE=Debug ..
 
     - name: Build
       run: |
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests
+    - name: Run Tests Sequentially
       env:
-        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log"
+        ASAN_OPTIONS: "detect_leaks=1"
       run: |
         cd build
-        ctest --output-on-failure || true
-        cat asan.log || echo "No ASan logs generated."
+        ctest --output-on-failure --schedule-random=0
 
-    - name: Upload Logs and Test Results
+    - name: Upload Logs
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: asan-log
-        path: build/asan.log
+        name: linux-test-results
+        path: build/Testing/Temporary
 
   build-macos:
     runs-on: macos-latest
@@ -58,13 +57,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Log System Information
+    - name: Log Environment Details
       run: |
         uname -a
-        g++ --version
+        clang --version
         cmake --version
 
-    - name: Install dependencies
+    - name: Install Dependencies
       run: |
         brew install cmake
 
@@ -74,24 +73,29 @@ jobs:
     - name: Configure CMake
       run: |
         cd build
-        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" -DCMAKE_BUILD_TYPE=Debug ..
+        cmake -DCMAKE_CXX_COMPILER=clang++ \
+              -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+              -DCMAKE_BUILD_TYPE=Debug ..
 
     - name: Build
       run: |
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests
+    - name: Run Tests Sequentially
       env:
-        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log"
+        ASAN_OPTIONS: "detect_leaks=1 log_path=/tmp/asan-macos.log"
       run: |
         cd build
-        ctest --output-on-failure || true
-        cat asan.log || echo "No ASan logs generated."
+        ctest --output-on-failure --schedule-random=0 || true
+        ls -l /tmp/asan-macos.log || echo "No ASan log found."
+        cat /tmp/asan-macos.log || echo "ASan log is empty or missing."
 
-    - name: Upload Logs and Test Results
+    - name: Upload Logs
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: asan-log
-        path: build/asan.log
+        name: macos-test-results
+        path: |
+          /tmp/asan-macos.log
+          build/Testing/Temporary
