@@ -22,7 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake g++-12 build-essential
+        sudo apt-get install -y cmake g++-12 build-essential libasan6
 
     - name: Set GCC Version
       run: |
