@@ -24,10 +24,11 @@ OrderBookAllocator::OrderBookAllocator(const Config& config)
 
 OrderBookAllocator::~OrderBookAllocator() noexcept {
     try {
-        reset();  // Clean up all allocations
-        m_order_map.clear();
-        // Do NOT deallocate m_order_pool and m_price_level_pool here
-        // Let AllocatorManager handle it
+        reset();
+        std::unordered_map<std::string, OrderNode*> empty_map;
+        m_order_map.swap(empty_map);
+        
+        // Don't delete the pools - they're managed by AllocatorManager
         m_order_pool = nullptr;
         m_price_level_pool = nullptr;
     } catch (...) {}

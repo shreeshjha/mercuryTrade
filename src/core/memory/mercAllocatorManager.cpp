@@ -65,17 +65,19 @@ void AllocatorManager::cleanup() noexcept {
             void* ptr = m_tracker.findPointerForAllocation(alloc);
             if (!ptr) continue;
             
+            // Only free the memory that we directly allocated
             if (alloc.size > MAX_BLOCK_SIZE) {
                 ::operator delete(ptr, std::nothrow);
             }
             m_tracker.trackDeallocation(ptr);
         }
         
-        // Clear pools
         m_pools.clear();
         m_tracker.reset();
     } catch (...) {}
 }
+
+
 //Core allocation method 
 void * AllocatorManager::allocate(std::size_t size, const char* file, int line) {
   if(size > MAX_BLOCK_SIZE) {
