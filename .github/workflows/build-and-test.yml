@@ -24,6 +24,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cmake g++-12 build-essential
 
+    - name: Set GCC Version
+      run: |
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 90
+
     - name: Create Build Directory
       run: mkdir build
 
@@ -37,12 +41,19 @@ jobs:
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests
+    - name: Run Tests with AddressSanitizer
       env:
-        ASAN_OPTIONS: "detect_leaks=1"
+        ASAN_OPTIONS: "detect_leaks=1:log_path=asan.log:verbosity=1"
       run: |
         cd build
         ctest --output-on-failure || ctest --rerun-failed --output-on-failure
+
+    - name: Upload AddressSanitizer Logs
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: asan-logs
+        path: build/asan.log
 
   build-macos:
     runs-on: macos-latest
@@ -73,10 +84,17 @@ jobs:
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests
+    - name: Run Tests with AddressSanitizer
       env:
-        ASAN_OPTIONS: "detect_leaks=1"
+        ASAN_OPTIONS: "detect_leaks=1:log_path=asan.log:verbosity=1"
       run: |
         cd build
         ctest --output-on-failure || ctest --rerun-failed --output-on-failure
+
+    - name: Upload AddressSanitizer Logs
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: asan-logs
+        path: build/asan.log
 
