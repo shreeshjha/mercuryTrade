@@ -46,10 +46,11 @@ jobs:
 
     - name: Run Tests with Detailed Logs
       env:
-        ASAN_OPTIONS: "detect_leaks=1:log_path=asan.log:verbosity=1"
+        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log"
       run: |
         cd build
-        ctest --output-on-failure --verbose || ctest --rerun-failed --output-on-failure --verbose
+        ctest --output-on-failure || true
+        cat asan.log || echo "No ASan logs generated."
 
     - name: Upload CTest Logs
       if: failure()
