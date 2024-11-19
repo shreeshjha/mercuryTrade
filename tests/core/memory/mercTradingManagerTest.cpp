@@ -42,28 +42,31 @@ marketData createTestMarketData(const std::string& symbol, double bid, double as
 }
 
 void testBasicOrderSubmission(){
-    const char* TEST_NAME = "Basic Order Submission Test";
+    const char* TEST_NAME = "Basic Order Allocation Test";
+    OrderBookAllocator allocator;
 
-    tradingManager manager;
-    // Start the trading system
-    verify(manager.start(), TEST_NAME, "Failed to start trading system");
-    verify(manager.getStatus() == tradingManager::Status::RUNNING, TEST_NAME, "Trading System should be running");
+    try {
+        // Allocate an order
+        OrderNode* order = allocator.allocateOrder();
+        verify(order != nullptr, TEST_NAME, "Order allocation failed");
 
-    // Submit a valid order
-    order ord = createTestOrder("ORDER1" , "AAPL" , 150.0 , 100.0 , true);
-    bool result = manager.submitOrder(ord);
-    verify(result, TEST_NAME, "Order submission failed");
+        // Set order properties
+        order->price = 100.0;
+        order->quantity = 10.0;
+        order->order_id = "ORDER1";
 
-    // Check stats
-    auto stats = manager.getStats();
-    verify(stats.active_orders > 0 , TEST_NAME, "Should have active orders");
+        // Register and verify order
+        allocator.registerOrder(order->order_id, order);
+        verify(allocator.findOrder("ORDER1") == order, TEST_NAME, "Order lookup failed");
 
-    // Cancel the order
-    result = manager.cancelOrder("ORDER1");
-    verify(result, TEST_NAME, "Order cancellation failed");
-
-    // Stop the trading system
-    verify(manager.stop(), TEST_NAME , "Failed to stop trading system");
+        // Deallocate and verify cleanup
+        allocator.deallocateOrder(order);
+        verify(allocator.getStats().active_orders == 0, TEST_NAME, "Order deallocation failed");
+        verify(allocator.findOrder("ORDER1") == nullptr, TEST_NAME, "Order still found after deallocation");
+    } catch (...) {
+        allocator.reset(); // Emergency cleanup
+        throw;
+    }
 }
 
 void testMarketDataHandling(){

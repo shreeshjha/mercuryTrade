@@ -369,27 +369,27 @@ bool tradingManager::beginTransaction() {
             }
 
             bool tradingManager::stop() {
-    if (m_status != Status::RUNNING && m_status != Status::PAUSED) {
-        return false;
-    }
-    
-    std::lock_guard<std::mutex> lock(m_transaction_mutex);
-    m_status = Status::STOPPING;
-    
-    // Clean up any pending transactions
-    {
-        std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
-        for (auto& pair : m_thread_transactions) {
-            m_transaction_allocator.rollbackTransaction(pair.second);
-            m_transaction_allocator.endTransaction(pair.second);
-        }
-        m_thread_transactions.clear();
-    }
-    
-    cleanupResources();
-    m_status = Status::STARTING;
-    return true;
-}
+                if (m_status != Status::RUNNING && m_status != Status::PAUSED) {
+                    return false;
+                }
+                
+                std::lock_guard<std::mutex> lock(m_transaction_mutex);
+                m_status = Status::STOPPING;
+                
+                // Clean up any pending transactions
+                {
+                    std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+                    for (auto& pair : m_thread_transactions) {
+                        m_transaction_allocator.rollbackTransaction(pair.second);
+                        m_transaction_allocator.endTransaction(pair.second);
+                    }
+                    m_thread_transactions.clear();
+                }
+                
+                cleanupResources();
+                m_status = Status::STARTING;
+                return true;
+            }
             bool tradingManager::pause(){
                 if (m_status != Status::RUNNING){
                     return false;
