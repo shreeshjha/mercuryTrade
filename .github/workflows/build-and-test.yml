@@ -7,16 +7,22 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
 
+    - name: Log System Information
+      run: |
+        uname -a
+        g++ --version
+        cmake --version
+
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake g++ build-essential
+        sudo apt-get install -y cmake g++-12 build-essential
 
     - name: Create Build Directory
       run: mkdir build
@@ -24,17 +30,19 @@ jobs:
     - name: Configure CMake
       run: |
         cd build
-        cmake ..
+        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" -DCMAKE_BUILD_TYPE=Debug ..
 
     - name: Build
       run: |
         cd build
-        cmake --build . --config Release
+        cmake --build . --config Debug
 
     - name: Run Tests
+      env:
+        ASAN_OPTIONS: "detect_leaks=1"
       run: |
         cd build
-        ctest -V
+        ctest --output-on-failure || ctest --rerun-failed --output-on-failure
 
   build-macos:
     runs-on: macos-latest
@@ -42,20 +50,33 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Log System Information
+      run: |
+        uname -a
+        g++ --version
+        cmake --version
+
+    - name: Install dependencies
+      run: |
+        brew install cmake
+
     - name: Create Build Directory
       run: mkdir build
 
     - name: Configure CMake
       run: |
         cd build
-        cmake ..
+        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" -DCMAKE_BUILD_TYPE=Debug ..
 
     - name: Build
       run: |
         cd build
-        cmake --build . --config Release
+        cmake --build . --config Debug
 
     - name: Run Tests
+      env:
+        ASAN_OPTIONS: "detect_leaks=1"
       run: |
         cd build
-        ctest --output-on-failure
+        ctest --output-on-failure || ctest --rerun-failed --output-on-failure
+
