@@ -22,11 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake g++-12 build-essential libasan6
-
-    - name: Set GCC Version
-      run: |
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 90
+        sudo apt-get install -y cmake g++-12 build-essential
 
     - name: Create Build Directory
       run: mkdir build
@@ -36,35 +32,17 @@ jobs:
         cd build
         cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" -DCMAKE_BUILD_TYPE=Debug ..
 
-    - name: Prepare AddressSanitizer Logs
-      run: touch build/asan.log
-
     - name: Build
       run: |
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests with Detailed Logs
+    - name: Run Tests
       env:
-        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log"
+        ASAN_OPTIONS: "detect_leaks=1"
       run: |
         cd build
-        ctest --output-on-failure || true
-        cat asan.log || echo "No ASan logs generated."
-
-    - name: Upload CTest Logs
-      if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: ctest-logs
-        path: build/Testing/Temporary/LastTest.log
-
-    - name: Upload AddressSanitizer Logs
-      if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: asan-logs
-        path: build/asan.log
+        ctest --output-on-failure || ctest --rerun-failed --output-on-failure
 
   build-macos:
     runs-on: macos-latest
@@ -90,32 +68,14 @@ jobs:
         cd build
         cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" -DCMAKE_BUILD_TYPE=Debug ..
 
-    - name: Prepare AddressSanitizer Logs
-      run: touch build/asan.log
-
     - name: Build
       run: |
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests with Detailed Logs
+    - name: Run Tests
       env:
-        ASAN_OPTIONS: "detect_leaks=1:log_path=asan.log:verbosity=1"
+        ASAN_OPTIONS: "detect_leaks=1"
       run: |
         cd build
-        ctest --output-on-failure --verbose || ctest --rerun-failed --output-on-failure --verbose
-
-    - name: Upload CTest Logs
-      if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: ctest-logs
-        path: build/Testing/Temporary/LastTest.log
-
-    - name: Upload AddressSanitizer Logs
-      if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: asan-logs
-        path: build/asan.log
-
+        ctest --output-on-failure || ctest --rerun-failed --output-on-failure
