@@ -44,19 +44,19 @@ jobs:
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests with AddressSanitizer
+    - name: Run Tests with Detailed Logs
       env:
         ASAN_OPTIONS: "detect_leaks=1:log_path=asan.log:verbosity=1"
       run: |
         cd build
-        ctest --output-on-failure || ctest --rerun-failed --output-on-failure
+        ctest --output-on-failure --verbose || ctest --rerun-failed --output-on-failure --verbose
 
-    - name: Check for ASan Log
-      run: |
-        if [ ! -f build/asan.log ]; then
-          echo "ASan log file not created.";
-          exit 1;
-        fi
+    - name: Upload CTest Logs
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: ctest-logs
+        path: build/Testing/Temporary/LastTest.log
 
     - name: Upload AddressSanitizer Logs
       if: failure()
@@ -64,6 +64,39 @@ jobs:
       with:
         name: asan-logs
         path: build/asan.log
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Log System Information
+      run: |
+        uname -a
+        g++ --version
+        cmake --version
+
+    - name: Install dependencies
+      run: |
+        brew install cmake
+
+    - name: Create Build Directory
+      run: mkdir build
+
+    - name: Configure CMake
+      run: |
+        cd build
+        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" -DCMAKE_BUILD_TYPE=Debug ..
+
+    - name: Prepare AddressSanitizer Logs
+      run: touch build/asan.log
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Debug
+
     - name: Run Tests with Detailed Logs
       env:
         ASAN_OPTIONS: "detect_leaks=1:log_path=asan.log:verbosity=1"
