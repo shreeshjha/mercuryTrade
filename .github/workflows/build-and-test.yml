@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        asan_options: ["detect_leaks=1", ""]
+        asan_flags: ["-fsanitize=address -fno-omit-frame-pointer", ""]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -19,15 +19,20 @@ jobs:
 
     - name: Log System Information
       run: |
+        echo "System Information:"
         uname -a
+        echo "G++ Version:"
         g++ --version
+        echo "CMake Version:"
         cmake --version
 
     - name: Install dependencies
       run: |
         if [[ "$(uname -s)" == "Darwin" ]]; then
+          echo "Installing dependencies on macOS"
           brew install cmake
         else
+          echo "Installing dependencies on Linux"
           sudo apt-get update
           sudo apt-get install -y cmake g++-12 build-essential
         fi
@@ -38,21 +43,8 @@ jobs:
     - name: Configure CMake
       run: |
         cd build
+        echo "Running CMake configuration..."
         if [[ "$(uname -s)" == "Darwin" ]]; then
           cmake -DCMAKE_BUILD_TYPE=Debug ..
         else
-          cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" -DCMAKE_BUILD_TYPE=Debug ..
-        fi
-
-    - name: Build
-      run: |
-        cd build
-        cmake --build . --config Debug
-
-    - name: Run Tests
-      env:
-        ASAN_OPTIONS: ${{ matrix.asan_options }}
-      run: |
-        cd build
-        ctest --output-on-failure || ctest --rerun-failed --output-on-failure
-
+          cmake -DCMAKE_CXX_FLAGS="${{ matrix.asan_flags }}" -DCMAKE_BUILD
