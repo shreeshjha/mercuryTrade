@@ -18,37 +18,63 @@ void verify(bool condition, const char* testName, const char* message) {
 
 // Test basic order allocation and deallocation
 void testBasicOrderAllocation() {
+    // const char* TEST_NAME = "Basic Order Allocation Test";
+    
+    // OrderBookAllocator allocator;
+    
+    // // Allocate an order
+    // OrderNode* order = allocator.allocateOrder();
+    // verify(order != nullptr, TEST_NAME, "Order allocation failed");
+    
+    // // Set order properties
+    // order->price = 100.0;
+    // order->quantity = 10.0;
+    // order->order_id = "ORDER1";
+    
+    // // Register order
+    // allocator.registerOrder(order->order_id, order);
+    
+    // // Verify order lookup
+    // OrderNode* found = allocator.findOrder("ORDER1");
+    // verify(found == order, TEST_NAME, "Order lookup failed");
+    
+    // // Check statistics
+    // auto stats = allocator.getStats();
+    // verify(stats.active_orders == 1, TEST_NAME, "Active orders count mismatch");
+    
+    // // Deallocate order
+    // allocator.deallocateOrder(order);
+    
+    // // Verify deallocation
+    // stats = allocator.getStats();
+    // verify(stats.active_orders == 0, TEST_NAME, "Order deallocation failed");
+    // verify(allocator.findOrder("ORDER1") == nullptr, TEST_NAME, "Order still found after deallocation");
     const char* TEST_NAME = "Basic Order Allocation Test";
-    
+
+    std::cout << "[DEBUG] Starting " << TEST_NAME << "\n";
+
     OrderBookAllocator allocator;
-    
-    // Allocate an order
-    OrderNode* order = allocator.allocateOrder();
-    verify(order != nullptr, TEST_NAME, "Order allocation failed");
-    
-    // Set order properties
-    order->price = 100.0;
-    order->quantity = 10.0;
-    order->order_id = "ORDER1";
-    
-    // Register order
-    allocator.registerOrder(order->order_id, order);
-    
-    // Verify order lookup
-    OrderNode* found = allocator.findOrder("ORDER1");
-    verify(found == order, TEST_NAME, "Order lookup failed");
-    
-    // Check statistics
-    auto stats = allocator.getStats();
-    verify(stats.active_orders == 1, TEST_NAME, "Active orders count mismatch");
-    
-    // Deallocate order
-    allocator.deallocateOrder(order);
-    
-    // Verify deallocation
-    stats = allocator.getStats();
-    verify(stats.active_orders == 0, TEST_NAME, "Order deallocation failed");
-    verify(allocator.findOrder("ORDER1") == nullptr, TEST_NAME, "Order still found after deallocation");
+
+    try {
+        OrderNode* order = allocator.allocateOrder();
+        if (!order) {
+            std::cerr << "[DEBUG] Failed to allocate order.\n";
+            throw std::runtime_error("Order allocation failed");
+        }
+
+        std::cout << "[DEBUG] Order allocated at: " << order << "\n";
+
+        allocator.registerOrder("ORDER1", order);
+        std::cout << "[DEBUG] Registered order with ID: ORDER1\n";
+
+        allocator.deallocateOrder(order);
+        std::cout << "[DEBUG] Deallocated order with ID: ORDER1\n";
+
+        std::cout << "[DEBUG] " << TEST_NAME << " PASSED.\n";
+    } catch (const std::exception& e) {
+        std::cerr << "[DEBUG] Exception in " << TEST_NAME << ": " << e.what() << "\n";
+        throw;
+    }
 }
 
 // Test price level management

@@ -23,15 +23,25 @@ OrderBookAllocator::OrderBookAllocator(const Config& config)
 }
 
 OrderBookAllocator::~OrderBookAllocator() noexcept {
-    try {
-        reset();
-        std::unordered_map<std::string, OrderNode*> empty_map;
-        m_order_map.swap(empty_map);
+    // try {
+    //     reset();
+    //     std::unordered_map<std::string, OrderNode*> empty_map;
+    //     m_order_map.swap(empty_map);
         
-        // Don't delete the pools - they're managed by AllocatorManager
+    //     // Don't delete the pools - they're managed by AllocatorManager
+    //     m_order_pool = nullptr;
+    //     m_price_level_pool = nullptr;
+    // } catch (...) {}
+    try {
+        reset(); // Clean up all allocations
         m_order_pool = nullptr;
         m_price_level_pool = nullptr;
-    } catch (...) {}
+        std::cerr << "[~OrderBookAllocator] Destructor completed. Resources released.\n";
+    } catch (const std::exception& e) {
+        std::cerr << "[~OrderBookAllocator] Exception during destruction: " << e.what() << "\n";
+    } catch (...) {
+        std::cerr << "[~OrderBookAllocator] Unknown exception during destruction.\n";
+    }
 }
 
 OrderNode* OrderBookAllocator::allocateOrder() {
@@ -61,16 +71,30 @@ OrderNode* OrderBookAllocator::allocateOrder() {
     // } catch (...) {
     //     return nullptr;
     // }
-    if (m_active_orders.load(std::memory_order_relaxed) >= m_config.max_orders) {
+   if (m_active_orders.load(std::memory_order_relaxed) >= m_config.max_orders) {
+        std::cerr << "[allocateOrder] Max orders reached. Allocation failed.\n";
         return nullptr;
     }
 
     try {
-        // Use the pre-allocated pool instead of allocating new memory
         std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
+
+        // Debug: Log memory allocation offset
+        std::cerr << "[allocateOrder] Allocating order memory. Active orders: "
+                  << m_active_orders.load(std::memory_order_relaxed) << "\n";
+
         void* memory = static_cast<char*>(m_order_pool) + 
                       (m_active_orders.load(std::memory_order_relaxed) * order_size);
         
+        if (!memory) {
+            std::cerr << "[allocateOrder] Allocation returned nullptr!\n";
+            return nullptr;
+        }
+
+        // Debug: Placement new
+        std::cerr << "[allocateOrder] Constructing new OrderNode at memory address "
+                  << memory << "\n";
+
         OrderNode* node = new (memory) OrderNode();
         node->price = 0.0;
         node->quantity = 0.0;
@@ -80,22 +104,136 @@ OrderNode* OrderBookAllocator::allocateOrder() {
         node->parent_level = nullptr;
         
         m_active_orders.fetch_add(1, std::memory_order_release);
+
+        std::cerr << "[allocateOrder] OrderNode allocated successfully. Active orders: "
+                  << m_active_orders.load(std::memory_order_relaxed) << "\n";
+
         return node;
+    } catch (const std::exception& e) {
+        std::cerr << "[allocateOrder] Exception during allocation: " << e.what() << "\n";
+        return nullptr;
     } catch (...) {
+        std::cerr << "[allocateOrder] Unknown exception during allocation.\n";
         return nullptr;
     }
 }
 void OrderBookAllocator::deallocateOrder(OrderNode* order) {
-    if (!order) return;
+    // if (!order) return;
+
+    // try {
+    //     // Safely remove from lookup map first
+    //     if (!order->order_id.empty()) {
+    //       std::lock_guard<std::mutex> lock(m_order_map_mutex); //protect access  
+    //       m_order_map.erase(order->order_id);
+    //     }
+
+    //     // Safely unlink from parent level
+    //     if (order->parent_level) {
+    //         if (order->parent_level->first_order == order) {
+    //             order->parent_level->first_order = order->next;
+    //         }
+    //         if (order->parent_level->last_order == order) {
+    //             order->parent_level->last_order = order->prev;
+    //         }
+    //         if (order->parent_level->order_count > 0) {
+    //             order->parent_level->order_count--;
+    //         }
+    //         order->parent_level->total_quantity -= order->quantity;
+    //     }
+
+    //     // Safely update links
+    //     if (order->prev) {
+    //         order->prev->next = order->next;
+    //     }
+    //     if (order->next) {
+    //         order->next->prev = order->prev;
+    //     }
+
+    //     // Clear the order's pointers before deallocation
+    //     order->next = nullptr;
+    //     order->prev = nullptr;
+    //     order->parent_level = nullptr;
+
+    //     // Finally deallocate
+    //     std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
+    //     m_allocator.deallocate(order, order_size);
+        
+    //     if (m_active_orders > 0) {
+    //         m_active_orders--;
+    //     }
+    // }
+    // catch (const std::exception& e) {
+    //     std::cerr << "Error in deallocateOrder: " << e.what() << std::endl;
+    //     throw;
+    // }
+    // if (!order) {
+    //     std::cerr << "[deallocateOrder] Null order passed. Ignoring deallocation.\n";
+    //     return;
+    // }
+
+    // try {
+    //     std::cerr << "[deallocateOrder] Deallocating order with ID: " 
+    //               << (order->order_id.empty() ? "(unknown)" : order->order_id) << "\n";
+
+    //     // Remove from map
+    //     if (!order->order_id.empty()) {
+    //         std::lock_guard<std::mutex> lock(m_order_map_mutex);
+    //         m_order_map.erase(order->order_id);
+    //     }
+
+    //     // Unlink from parent level
+    //     if (order->parent_level) {
+    //         if (order->parent_level->first_order == order) {
+    //             order->parent_level->first_order = order->next;
+    //         }
+    //         if (order->parent_level->last_order == order) {
+    //             order->parent_level->last_order = order->prev;
+    //         }
+    //         if (order->parent_level->order_count > 0) {
+    //             order->parent_level->order_count--;
+    //         }
+    //         order->parent_level->total_quantity -= order->quantity;
+    //     }
+
+    //     // Safely unlink
+    //     if (order->prev) {
+    //         order->prev->next = order->next;
+    //     }
+    //     if (order->next) {
+    //         order->next->prev = order->prev;
+    //     }
+
+    //     // Clear the order's pointers
+    //     order->next = nullptr;
+    //     order->prev = nullptr;
+    //     order->parent_level = nullptr;
+
+    //     // Deallocate memory
+    //     std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
+    //     m_allocator.deallocate(order, order_size);
+
+    //     m_active_orders.fetch_sub(1, std::memory_order_release);
+
+    //     std::cerr << "[deallocateOrder] OrderNode deallocated successfully. Active orders: "
+    //               << m_active_orders.load(std::memory_order_relaxed) << "\n";
+    // } catch (const std::exception& e) {
+    //     std::cerr << "[deallocateOrder] Exception during deallocation: " << e.what() << "\n";
+    // } catch (...) {
+    //     std::cerr << "[deallocateOrder] Unknown exception during deallocation.\n";
+    // }
+    if (!order) {
+        std::cerr << "[deallocateOrder] Null order passed. Ignoring deallocation.\n";
+        return;
+    }
 
     try {
-        // Safely remove from lookup map first
+        // Remove from the map
         if (!order->order_id.empty()) {
-          std::lock_guard<std::mutex> lock(m_order_map_mutex); //protect access  
-          m_order_map.erase(order->order_id);
+            std::lock_guard<std::mutex> lock(m_order_map_mutex);
+            m_order_map.erase(order->order_id);
         }
 
-        // Safely unlink from parent level
+        // Unlink from the parent level
         if (order->parent_level) {
             if (order->parent_level->first_order == order) {
                 order->parent_level->first_order = order->next;
@@ -109,7 +247,7 @@ void OrderBookAllocator::deallocateOrder(OrderNode* order) {
             order->parent_level->total_quantity -= order->quantity;
         }
 
-        // Safely update links
+        // Unlink from sibling orders
         if (order->prev) {
             order->prev->next = order->next;
         }
@@ -117,22 +255,20 @@ void OrderBookAllocator::deallocateOrder(OrderNode* order) {
             order->next->prev = order->prev;
         }
 
-        // Clear the order's pointers before deallocation
-        order->next = nullptr;
-        order->prev = nullptr;
-        order->parent_level = nullptr;
+        // Clear dynamic fields
+        order->order_id.clear();
 
-        // Finally deallocate
+        // Deallocate memory
         std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
         m_allocator.deallocate(order, order_size);
-        
-        if (m_active_orders > 0) {
-            m_active_orders--;
-        }
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error in deallocateOrder: " << e.what() << std::endl;
-        throw;
+        m_active_orders.fetch_sub(1, std::memory_order_relaxed);
+
+        std::cerr << "[deallocateOrder] OrderNode deallocated. Active orders: "
+                  << m_active_orders.load(std::memory_order_relaxed) << "\n";
+    } catch (const std::exception& e) {
+        std::cerr << "[deallocateOrder] Exception during deallocation: " << e.what() << "\n";
+    } catch (...) {
+        std::cerr << "[deallocateOrder] Unknown exception during deallocation.\n";
     }
 }
 
@@ -162,50 +298,82 @@ PriceLevel* OrderBookAllocator::allocatePriceLevel() {
 }
 
 void OrderBookAllocator::deallocatePriceLevel(PriceLevel* level) {
-    if (!level) return;
+    // if (!level) return;
+
+    // try {
+    //     // First safely unlink and deallocate all orders
+    //     while (level->first_order) {
+    //         OrderNode* order = level->first_order;
+    //         level->first_order = order->next;
+            
+    //         // Unregister if necessary
+    //         if (!order->order_id.empty()) {
+    //             m_order_map.erase(order->order_id);
+    //         }
+            
+    //         // Clear order's links
+    //         order->next = nullptr;
+    //         order->prev = nullptr;
+    //         order->parent_level = nullptr;
+            
+    //         // Deallocate order
+    //         m_allocator.deallocate(order, sizeof(OrderNode));
+            
+    //         if (m_active_orders > 0) {
+    //             m_active_orders--;
+    //         }
+    //     }
+
+    //     // Clear level's pointers
+    //     level->first_order = nullptr;
+    //     level->last_order = nullptr;
+    //     level->next = nullptr;
+    //     level->prev = nullptr;
+    //     level->order_count = 0;
+    //     level->total_quantity = 0;
+
+    //     // Finally deallocate the level itself
+    //     m_allocator.deallocate(level, sizeof(PriceLevel));
+        
+    //     if (m_active_price_levels > 0) {
+    //         m_active_price_levels--;
+    //     }
+    // }
+    // catch (const std::exception& e) {
+    //     std::cerr << "Error in deallocatePriceLevel: " << e.what() << std::endl;
+    //     throw;
+    // }
+    if (!level) {
+        std::cerr << "[deallocatePriceLevel] Null level passed. Ignoring deallocation.\n";
+        return;
+    }
 
     try {
-        // First safely unlink and deallocate all orders
+        // Unlink and deallocate all orders associated with this price level
         while (level->first_order) {
             OrderNode* order = level->first_order;
             level->first_order = order->next;
-            
-            // Unregister if necessary
-            if (!order->order_id.empty()) {
-                m_order_map.erase(order->order_id);
-            }
-            
-            // Clear order's links
-            order->next = nullptr;
-            order->prev = nullptr;
-            order->parent_level = nullptr;
-            
-            // Deallocate order
-            m_allocator.deallocate(order, sizeof(OrderNode));
-            
-            if (m_active_orders > 0) {
-                m_active_orders--;
-            }
+            deallocateOrder(order);
         }
 
-        // Clear level's pointers
+        // Clear the level's pointers
         level->first_order = nullptr;
         level->last_order = nullptr;
         level->next = nullptr;
         level->prev = nullptr;
         level->order_count = 0;
-        level->total_quantity = 0;
+        level->total_quantity = 0.0;
 
-        // Finally deallocate the level itself
+        // Deallocate the level itself
         m_allocator.deallocate(level, sizeof(PriceLevel));
-        
-        if (m_active_price_levels > 0) {
-            m_active_price_levels--;
-        }
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error in deallocatePriceLevel: " << e.what() << std::endl;
-        throw;
+        m_active_price_levels.fetch_sub(1, std::memory_order_relaxed);
+
+        std::cerr << "[deallocatePriceLevel] PriceLevel deallocated. Active price levels: "
+                  << m_active_price_levels.load(std::memory_order_relaxed) << "\n";
+    } catch (const std::exception& e) {
+        std::cerr << "[deallocatePriceLevel] Exception during deallocation: " << e.what() << "\n";
+    } catch (...) {
+        std::cerr << "[deallocatePriceLevel] Unknown exception during deallocation.\n";
     }
 }
 

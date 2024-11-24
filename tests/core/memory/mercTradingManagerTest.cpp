@@ -42,32 +42,92 @@ marketData createTestMarketData(const std::string& symbol, double bid, double as
 }
 
 void testBasicOrderSubmission(){
-    const char* TEST_NAME = "Basic Order Allocation Test";
-    OrderBookAllocator allocator;
+    // const char* TEST_NAME = "Basic Order Allocation Test";
+    // OrderBookAllocator allocator;
 
-    try {
-        // Allocate an order
-        OrderNode* order = allocator.allocateOrder();
-        verify(order != nullptr, TEST_NAME, "Order allocation failed");
+    // try {
+    //     // Allocate an order
+    //     OrderNode* order = allocator.allocateOrder();
+    //     verify(order != nullptr, TEST_NAME, "Order allocation failed");
 
-        // Set order properties
-        order->price = 100.0;
-        order->quantity = 10.0;
-        order->order_id = "ORDER1";
+    //     // Set order properties
+    //     order->price = 100.0;
+    //     order->quantity = 10.0;
+    //     order->order_id = "ORDER1";
 
-        // Register and verify order
-        allocator.registerOrder(order->order_id, order);
-        verify(allocator.findOrder("ORDER1") == order, TEST_NAME, "Order lookup failed");
+    //     // Register and verify order
+    //     allocator.registerOrder(order->order_id, order);
+    //     verify(allocator.findOrder("ORDER1") == order, TEST_NAME, "Order lookup failed");
 
-        // Deallocate and verify cleanup
-        allocator.deallocateOrder(order);
-        verify(allocator.getStats().active_orders == 0, TEST_NAME, "Order deallocation failed");
-        verify(allocator.findOrder("ORDER1") == nullptr, TEST_NAME, "Order still found after deallocation");
-    } catch (...) {
-        allocator.reset(); // Emergency cleanup
-        throw;
-    }
-}
+    //     // Deallocate and verify cleanup
+    //     allocator.deallocateOrder(order);
+    //     verify(allocator.getStats().active_orders == 0, TEST_NAME, "Order deallocation failed");
+    //     verify(allocator.findOrder("ORDER1") == nullptr, TEST_NAME, "Order still found after deallocation");
+    // } catch (...) {
+    //     allocator.reset(); // Emergency cleanup
+    //     throw;
+    // }
+
+        const char* TEST_NAME = "Concurrent Operations Test";
+        std::cout << "[DEBUG] Starting " << TEST_NAME << "\n";
+
+        tradingManager manager;
+        verify(manager.start(), TEST_NAME, "Failed to start trading system");
+
+        std::atomic<bool> test_failed{false};
+        std::atomic<int> completed_threads{0};
+        const int NUM_THREADS = 4;
+        const int ITERATIONS_PER_THREAD = 10;
+
+        auto thread_func = [&](int thread_id) {
+            try {
+                for (int i = 0; i < ITERATIONS_PER_THREAD; ++i) {
+                    std::string order_id = "ORDER_" + std::to_string(thread_id) + "_" + std::to_string(i);
+
+                    order ord = createTestOrder(order_id, "AAPL", 150.0, 100.0, true);
+                    if (!manager.submitOrder(ord)) {
+                        std::cerr << "[DEBUG] Thread " << thread_id << " failed to submit order: " << order_id << "\n";
+                        test_failed = true;
+                        return;
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+                    if (!manager.cancelOrder(order_id)) {
+                        std::cerr << "[DEBUG] Thread " << thread_id << " failed to cancel order: " << order_id << "\n";
+                        test_failed = true;
+                        return;
+                    }
+                }
+                completed_threads.fetch_add(1);
+            } catch (const std::exception& e) {
+                std::cerr << "[DEBUG] Exception in thread " << thread_id << ": " << e.what() << "\n";
+                test_failed = true;
+            }
+        };
+
+        // Launch threads
+        std::vector<std::thread> threads;
+        for (int i = 0; i < NUM_THREADS; ++i) {
+            threads.emplace_back(thread_func, i);
+        }
+
+        // Wait for threads
+        for (auto& thread : threads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
+
+        // Final checks
+        if (test_failed || completed_threads.load() != NUM_THREADS) {
+            std::cerr << "[DEBUG] " << TEST_NAME << " failed. Completed threads: " << completed_threads.load() << "\n";
+            throw std::runtime_error(TEST_NAME + std::string(" failed"));
+        }
+
+        verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
+        std::cout << "[DEBUG] " << TEST_NAME << " PASSED.\n";
+    }  
 
 void testMarketDataHandling(){
     const char* TEST_NAME = "Market Data Handling Test";
