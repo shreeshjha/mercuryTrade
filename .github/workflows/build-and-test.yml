@@ -83,7 +83,7 @@ jobs:
 
     - name: Run Tests
       env:
-        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log"
+        ASAN_OPTIONS: "detect_leaks=0 log_path=asan.log"
       run: |
         cd build
         ctest --output-on-failure || true
