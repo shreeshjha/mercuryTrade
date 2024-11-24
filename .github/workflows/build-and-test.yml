@@ -22,7 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake g++-12 build-essential libasan6
+        sudo apt-get install -y cmake g++-12 build-essential libasan6 valgrind
 
     - name: Create Build Directory
       run: mkdir build
@@ -37,7 +37,7 @@ jobs:
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests
+    - name: Run Tests with ASan
       env:
         ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log"
       run: |
@@ -45,12 +45,17 @@ jobs:
         ctest --output-on-failure || true
         cat asan.log || echo "No ASan logs generated."
 
+    - name: Run Valgrind Tests
+      run: |
+        cd build
+        valgrind --leak-check=full ctest --output-on-failure || true
+
     - name: Upload Logs and Test Results
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: asan-log
-        path: build/asan.log
+        name: logs-and-results
+        path: build
 
   build-macos:
     runs-on: macos-latest
@@ -81,7 +86,7 @@ jobs:
         cd build
         cmake --build . --config Debug
 
-    - name: Run Tests
+    - name: Run Tests with ASan
       env:
         ASAN_OPTIONS: "detect_leaks=0 log_path=asan.log"
       run: |
@@ -93,5 +98,5 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: asan-log
-        path: build/asan.log
+        name: logs-and-results
+        path: build
