@@ -87,6 +87,12 @@ private:
     // Memory pools
     void* m_order_pool;
     void* m_price_level_pool;
+
+    void cleanupOrderPool();
+    void cleanupPriceLevelPool();
+
+    std::size_t m_order_pool_size;
+    std::size_t m_price_level_pool_size;
     
     // Statistics tracking
     std::atomic<std::size_t> m_active_orders{0};

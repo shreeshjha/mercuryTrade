@@ -28,14 +28,41 @@ namespace mercuryTrade{
             }
 
         tradingManager::~tradingManager() noexcept {
-    try {
+            // try {
+            //     if (m_status == Status::RUNNING) {
+            //         stop();
+            //     }
+                
+            //     // Clean up transactions first
+            //     {
+            //         std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+            //         for (auto& pair : m_thread_transactions) {
+            //             if (pair.second) {
+            //                 m_transaction_allocator.rollbackTransaction(pair.second);
+            //                 m_transaction_allocator.endTransaction(pair.second);
+            //             }
+            //         }
+            //         m_thread_transactions.clear();
+            //     }
+                
+            //     m_metrics.reset();
+            //     cleanupResources();
+                
+            //     // Let the allocators clean up their own resources naturally
+            //     // through their destructors
+                
+            // } catch (...) {
+            //     // Ensure no exceptions escape
+            // }
+            try {
+        // First stop trading if active
         if (m_status == Status::RUNNING) {
             stop();
         }
         
-        // Clean up transactions first
+        // Clean up transactions
         {
-            std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+            std::lock_guard<std::mutex> lock(m_thread_transactions_mutex);
             for (auto& pair : m_thread_transactions) {
                 if (pair.second) {
                     m_transaction_allocator.rollbackTransaction(pair.second);
@@ -45,16 +72,15 @@ namespace mercuryTrade{
             m_thread_transactions.clear();
         }
         
-        m_metrics.reset();
-        cleanupResources();
+         m_metrics.reset();
+         m_status = Status::STOPPING;
         
-        // Let the allocators clean up their own resources naturally
-        // through their destructors
-        
+        std::cerr << "[~tradingManager] Cleanup completed successfully\n";
     } catch (...) {
-        // Ensure no exceptions escape
+        std::cerr << "[~tradingManager] Exception during cleanup\n";
     }
 }
+
 
 
 

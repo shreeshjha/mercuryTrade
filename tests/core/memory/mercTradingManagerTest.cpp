@@ -17,6 +17,12 @@ void verify(bool condition, const char* testName, const char* message){
     std::cout<< testName << ": PASSED" << std::endl;
 }
 
+void tearDown(tradingManager& manager) {
+    manager.stop();
+    // Force cleanup of any remaining resources
+    manager.cleanupResources();
+}
+
 // Helper function to create a test order
 order createTestOrder(const std::string& id, const std::string& symbol, double price, double quantity, bool is_buy){
     order ord;
@@ -127,6 +133,7 @@ void testBasicOrderSubmission(){
 
         verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
         std::cout << "[DEBUG] " << TEST_NAME << " PASSED.\n";
+        tearDown(manager);
     }  
 
 void testMarketDataHandling(){
@@ -146,6 +153,7 @@ void testMarketDataHandling(){
     verify(manager.submitOrder(ord), TEST_NAME, "Order submission after market data failed");
 
     verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
+    tearDown(manager);
 }
 
 void testSystemStateTransitions(){
@@ -185,6 +193,7 @@ void testSystemStateTransitions(){
     // Test Stop
     verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
     verify(manager.getStatus() == tradingManager::Status::STARTING, TEST_NAME, "System should be in starting state after stop");
+    tearDown(manager);
 }
 
 void testConcurrentOperations() {
@@ -289,6 +298,7 @@ void testConcurrentOperations() {
               << "Pending Transactions: " << stats.pending_transactions << std::endl
               << "Average Latency: " << stats.avg_latency << std::endl;
     std::cout << "Test completed and resources cleaned up" << std::endl;
+    tearDown(manager);
 }
 void testMemoryOptimization(){
     const char* TEST_NAME = "Memory Optimization Test";
@@ -314,6 +324,7 @@ void testMemoryOptimization(){
     // Verify memory was optimized
     verify(stats_after.memory_used <= stats_before.memory_used, TEST_NAME, "Memory usage should mot increase after optimization");
     verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
+    tearDown(manager);
 }
 
 int main(){

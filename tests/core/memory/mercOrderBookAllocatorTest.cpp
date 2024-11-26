@@ -71,6 +71,7 @@ void testBasicOrderAllocation() {
         std::cout << "[DEBUG] Deallocated order with ID: ORDER1\n";
 
         std::cout << "[DEBUG] " << TEST_NAME << " PASSED.\n";
+        
     } catch (const std::exception& e) {
         std::cerr << "[DEBUG] Exception in " << TEST_NAME << ": " << e.what() << "\n";
         throw;

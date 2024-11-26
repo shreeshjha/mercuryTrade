@@ -7,19 +7,24 @@ namespace memory {
 
 OrderBookAllocator::OrderBookAllocator(const Config& config)
     : m_config(config)
+    , m_order_pool_size((sizeof(OrderNode) + config.order_data_size) * config.max_orders)  
+    , m_price_level_pool_size(sizeof(PriceLevel) * config.max_price_levels)
 {
     if (config.max_orders == 0 || config.max_price_levels == 0) {
         throw std::invalid_argument("Invalid order book configuration");
     }
 
     // Allocate order pool
-    std::size_t order_size = sizeof(OrderNode) + config.order_data_size;
-    m_order_pool = m_allocator.allocate(order_size * config.max_orders);
+    // std::size_t order_size = sizeof(OrderNode) + config.order_data_size;
+    // m_order_pool = m_allocator.allocate(order_size * config.max_orders);
+
+    m_order_pool = m_allocator.allocate(m_order_pool_size);
 
     // Allocate price level pool
-    m_price_level_pool = m_allocator.allocate(
-        sizeof(PriceLevel) * config.max_price_levels
-    );
+    // m_price_level_pool = m_allocator.allocate(
+    //     sizeof(PriceLevel) * config.max_price_levels
+    // );
+    m_price_level_pool = m_allocator.allocate(m_price_level_pool_size);
 }
 
 OrderBookAllocator::~OrderBookAllocator() noexcept {
@@ -32,15 +37,38 @@ OrderBookAllocator::~OrderBookAllocator() noexcept {
     //     m_order_pool = nullptr;
     //     m_price_level_pool = nullptr;
     // } catch (...) {}
+    // try {
+    //     reset(); // Clean up all allocations
+    //     m_order_pool = nullptr;
+    //     m_price_level_pool = nullptr;
+    //     std::cerr << "[~OrderBookAllocator] Destructor completed. Resources released.\n";
+    // } catch (const std::exception& e) {
+    //     std::cerr << "[~OrderBookAllocator] Exception during destruction: " << e.what() << "\n";
+    // } catch (...) {
+    //     std::cerr << "[~OrderBookAllocator] Unknown exception during destruction.\n";
+    // }
     try {
-        reset(); // Clean up all allocations
+        // First clean up all active orders and price levels
+        reset();
+        
+        // Then clean up the memory pools
+        // if (m_order_pool) {
+        //     m_allocator.deallocate(m_order_pool, m_order_pool_size);
+        //     m_order_pool = nullptr;
+        // }
+        
+        // if (m_price_level_pool) {
+        //     m_allocator.deallocate(m_price_level_pool, m_price_level_pool_size);
+        //     m_price_level_pool = nullptr;
+        // }
         m_order_pool = nullptr;
         m_price_level_pool = nullptr;
-        std::cerr << "[~OrderBookAllocator] Destructor completed. Resources released.\n";
+        
+        std::cerr << "[~OrderBookAllocator] Cleanup completed successfully\n";
     } catch (const std::exception& e) {
-        std::cerr << "[~OrderBookAllocator] Exception during destruction: " << e.what() << "\n";
+        std::cerr << "[~OrderBookAllocator] Exception during cleanup: " << e.what() << "\n";
     } catch (...) {
-        std::cerr << "[~OrderBookAllocator] Unknown exception during destruction.\n";
+        std::cerr << "[~OrderBookAllocator] Unknown exception during cleanup\n";
     }
 }
 
@@ -228,6 +256,8 @@ void OrderBookAllocator::deallocateOrder(OrderNode* order) {
 
     try {
         // Remove from the map
+        order->order_id.clear();  // Release string memory
+        order->order_id.shrink_to_fit();  // Release capacity
         if (!order->order_id.empty()) {
             std::lock_guard<std::mutex> lock(m_order_map_mutex);
             m_order_map.erase(order->order_id);
@@ -270,6 +300,9 @@ void OrderBookAllocator::deallocateOrder(OrderNode* order) {
     } catch (...) {
         std::cerr << "[deallocateOrder] Unknown exception during deallocation.\n";
     }
+}
+void cleanup(OrderBookAllocator& allocator) {
+    allocator.reset();  // This should now properly clean up all resources
 }
 
 PriceLevel* OrderBookAllocator::allocatePriceLevel() {

@@ -37,6 +37,7 @@ namespace mercuryTrade{
                             };
                         }
                     };
+                    void cleanupResources();
                     // Statistics about the trading system
                     struct Stats{
                         std::size_t active_orders;
@@ -138,7 +139,7 @@ namespace mercuryTrade{
                     // Internal methods
                     bool validateOrder(const order& ord) const;
                     void updateMetrics(double latency);
-                    void cleanupResources();
+                    
 
                     // Helper methods for stats calculation
                     std::size_t calculateMemoryUsed() const;
