@@ -49,32 +49,23 @@ void AllocatorManager::initializePools() {
 
 AllocatorManager::~AllocatorManager() noexcept {
   //Check for leaks when allocator manager is destroyed
-  cleanup();
-  checkForLeaks();
+    try {
+      cleanup();
+      checkForLeaks();
+    } catch(...) {
+
+    }
 }
 
 //cleanup method
 void AllocatorManager::cleanup() noexcept {
-    try {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        auto activeAllocations = m_tracker.getActiveAllocations();
-        
-        for (const auto& alloc : activeAllocations) {
-            if (!alloc.isActive) continue;
-            
-            void* ptr = m_tracker.findPointerForAllocation(alloc);
-            if (!ptr) continue;
-            
-            // Only free the memory that we directly allocated
-            if (alloc.size > MAX_BLOCK_SIZE) {
-                ::operator delete(ptr, std::nothrow);
-            }
-            m_tracker.trackDeallocation(ptr);
-        }
-        
-        m_pools.clear();
-        m_tracker.reset();
-    } catch (...) {}
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    /*for (auto& pool : m_pools) {
+        pool.allocator->cleanup();
+    }*/
+
+    m_tracker.reset();
 }
 
 
@@ -131,7 +122,14 @@ void AllocatorManager::printMemoryReport() const {
 }
 
 void AllocatorManager::checkForLeaks() const {
-  m_tracker.detectLeaks();
+  auto leaks = m_tracker.getActiveAllocations();
+    if (!leaks.empty()) {
+        std::cerr << "Memory leaks detected:\n";
+        for (const auto& leak : leaks) {
+            std::cerr << "  Leak: " << leak.size << " bytes, allocated at " 
+                      << leak.file << ":" << leak.line << "\n";
+        }
+    }
 }
 
 MemoryTracker::MemoryStats AllocatorManager::getMemoryStats() const {

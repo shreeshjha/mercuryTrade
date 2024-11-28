@@ -79,7 +79,7 @@ public:
     void reset();  // Clear all allocations
     Stats getStats() const;
     bool hasCapacity() const;
-
+    std::size_t calculateTotalMemoryUsed() const;
 private:
     AllocatorManager m_allocator;
     Config m_config;
@@ -100,7 +100,7 @@ private:
     std::mutex m_order_map_mutex; //Add mutex for protecting m_order_map
 
     // Helper method for memory calculation
-    std::size_t calculateTotalMemoryUsed() const;
+   
 };
 
 // Order book data structures

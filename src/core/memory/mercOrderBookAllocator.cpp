@@ -1,4 +1,5 @@
 #include "../../../include/mercuryTrade/core/memory/mercOrderBookAllocator.hpp"
+#include <mutex>
 #include <stdexcept>
 
 namespace mercuryTrade {
@@ -23,15 +24,22 @@ OrderBookAllocator::OrderBookAllocator(const Config& config)
 }
 
 OrderBookAllocator::~OrderBookAllocator() noexcept {
-    try {
-        reset();
-        std::unordered_map<std::string, OrderNode*> empty_map;
-        m_order_map.swap(empty_map);
+ try {
+        std::cout << "[OrderBookAllocator] Starting cleanup..." << std::endl;
         
-        // Don't delete the pools - they're managed by AllocatorManager
+        // First reset internal state
+        reset();
+        
+        // No need to deallocate pools here - AllocatorManager handles that
         m_order_pool = nullptr;
         m_price_level_pool = nullptr;
-    } catch (...) {}
+        
+        std::cout << "[OrderBookAllocator] Cleanup completed" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[OrderBookAllocator] Exception during cleanup: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "[OrderBookAllocator] Unknown error during cleanup" << std::endl;
+    }
 }
 
 OrderNode* OrderBookAllocator::allocateOrder() {
@@ -195,7 +203,7 @@ void OrderBookAllocator::deallocatePriceLevel(PriceLevel* level) {
         level->prev = nullptr;
         level->order_count = 0;
         level->total_quantity = 0;
-
+ 
         // Finally deallocate the level itself
         m_allocator.deallocate(level, sizeof(PriceLevel));
         
@@ -229,15 +237,38 @@ void OrderBookAllocator::unregisterOrder(const std::string& order_id) {
 }
 
 void OrderBookAllocator::reset() {
-    // Clear all allocations
-    m_order_map.clear();
-    
-    // Reset statistics
-    m_active_orders = 0;
-    m_active_price_levels = 0;
-    m_order_modifications = 0;
-    m_peak_orders = 0;
-    m_peak_memory = 0;
+    try {
+        // First safely clear all order data
+        {
+            std::lock_guard<std::mutex> lock(m_order_map_mutex);
+            for (auto& pair : m_order_map) {
+                if (pair.second) {
+                    // Clear string data
+                    pair.second->order_id.clear();
+                   pair.second->order_id.shrink_to_fit();
+                    
+                    // Clear pointers
+                    pair.second->next = nullptr;
+                    pair.second->prev = nullptr;
+                    pair.second->parent_level = nullptr;
+                }
+            }
+            m_order_map.clear();
+        }
+
+        // Reset statistics
+        m_active_orders.store(0);
+        m_active_price_levels.store(0);
+        m_order_modifications.store(0); // Fixed this from m_active_modifications
+        m_peak_orders.store(0);
+        m_peak_memory.store(0);
+        
+        std::cout << "[OrderBookAllocator::reset] Successfully reset allocator state" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[OrderBookAllocator::reset] Error during reset: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "[OrderBookAllocator::reset] Unknown error during reset" << std::endl;
+    }
 }
 
 OrderBookAllocator::Stats OrderBookAllocator::getStats() const {
@@ -265,4 +296,5 @@ bool OrderBookAllocator::hasCapacity() const {
            m_active_price_levels.load() < m_config.max_price_levels;
 }
 
-}}} // namespaces
+}}} 
+

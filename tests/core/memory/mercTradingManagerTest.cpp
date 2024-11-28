@@ -41,34 +41,50 @@ marketData createTestMarketData(const std::string& symbol, double bid, double as
     return data;
 }
 
-void testBasicOrderSubmission(){
-    const char* TEST_NAME = "Basic Order Allocation Test";
-    OrderBookAllocator allocator;
-
+void cleanupTest(tradingManager& manager) {
     try {
-        // Allocate an order
-        OrderNode* order = allocator.allocateOrder();
-        verify(order != nullptr, TEST_NAME, "Order allocation failed");
-
-        // Set order properties
-        order->price = 100.0;
-        order->quantity = 10.0;
-        order->order_id = "ORDER1";
-
-        // Register and verify order
-        allocator.registerOrder(order->order_id, order);
-        verify(allocator.findOrder("ORDER1") == order, TEST_NAME, "Order lookup failed");
-
-        // Deallocate and verify cleanup
-        allocator.deallocateOrder(order);
-        verify(allocator.getStats().active_orders == 0, TEST_NAME, "Order deallocation failed");
-        verify(allocator.findOrder("ORDER1") == nullptr, TEST_NAME, "Order still found after deallocation");
-    } catch (...) {
-        allocator.reset(); // Emergency cleanup
+        std::cout << "Starting test cleanup..." << std::endl;
+        
+        // Stop the manager if it's running
+        if (manager.getStatus() == tradingManager::Status::RUNNING) {
+            if (!manager.stop()) {
+                throw std::runtime_error("Failed to stop trading manager");
+            }
+        }
+        
+        // Verify cleanup
+        auto stats = manager.getStats();
+        if (stats.active_orders != 0 || stats.pending_transactions != 0) {
+            throw std::runtime_error("Resources not properly cleaned up");
+        }
+        
+        std::cout << "Test cleanup completed successfully" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Test cleanup failed: " << e.what() << std::endl;
         throw;
     }
 }
+void testBasicOrderSubmission() {
+    const char* TEST_NAME = "Basic Order Submission Test";
+    try {
+        tradingManager manager;
+        verify(manager.start(), TEST_NAME, "Failed to start trading system");
 
+        // Create and submit test order
+        order ord = createTestOrder("ORDER1", "AAPL", 100.0, 10.0, true);
+        verify(manager.submitOrder(ord), TEST_NAME, "Order submission failed");
+        
+        // Verify the trading system state
+        auto stats = manager.getStats();
+        verify(stats.active_orders == 1, TEST_NAME, "Active orders count mismatch");
+        
+        verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
+        cleanupTest(manager);
+    } catch (const std::exception& e) {
+        std::cerr << TEST_NAME << " failed with exception: " << e.what() << std::endl;
+        throw;
+    }
+}
 void testMarketDataHandling(){
     const char* TEST_NAME = "Market Data Handling Test";
     tradingManager manager;
@@ -86,27 +102,10 @@ void testMarketDataHandling(){
     verify(manager.submitOrder(ord), TEST_NAME, "Order submission after market data failed");
 
     verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
+    cleanupTest(manager);
 }
 
 void testSystemStateTransitions(){
-    // const char* TEST_NAME = "System State Transitions Test";
-    // tradingManager manager;
-
-    // // Test Start
-    // verify(manager.start(), TEST_NAME, "Failed to start trading system");
-    // verify(manager.getStatus() == tradingManager::Status::RUNNING, TEST_NAME, "Sytem should be running");
-
-    // // Test Pause
-    // verify(manager.pause(), TEST_NAME, "Failed to start trading system");
-    // verify(manager.getStatus() == tradingManager::Status::PAUSED, TEST_NAME, "System should be paused");
-
-    // // Test resume
-    // verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
-    // verify(manager.getStatus() == tradingManager::Status::RUNNING, TEST_NAME, "System should be running after resume");
-
-    // // Test stop
-    // verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
-    // verify(manager.getStatus() == tradingManager::Status::STARTING, TEST_NAME, "System should be in starting state after stop");
     const char* TEST_NAME = "System State Transitions Test";
     tradingManager manager;
 
@@ -125,6 +124,7 @@ void testSystemStateTransitions(){
     // Test Stop
     verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
     verify(manager.getStatus() == tradingManager::Status::STARTING, TEST_NAME, "System should be in starting state after stop");
+    cleanupTest(manager);
 }
 
 void testConcurrentOperations() {
@@ -254,21 +254,58 @@ void testMemoryOptimization(){
     // Verify memory was optimized
     verify(stats_after.memory_used <= stats_before.memory_used, TEST_NAME, "Memory usage should mot increase after optimization");
     verify(manager.stop(), TEST_NAME, "Failed to stop trading system");
+    cleanupTest(manager);
 }
 
-int main(){
-    std::cout << "\nStarting Trading Manager Tests...\n" <<std::endl;
-    try{
-        testBasicOrderSubmission();
-        testMarketDataHandling();
-        testSystemStateTransitions();
-        testConcurrentOperations();
-        testMemoryOptimization();
+int main() {
+    std::cout << "\nStarting Trading Manager Tests...\n" << std::endl;
+    
+    try {
+        // Run each test in a separate try-catch block
+        try {
+            testBasicOrderSubmission();
+            std::cout << "Basic order submission test completed\n" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Basic order submission test failed: " << e.what() << std::endl;
+            throw;
+        }
+
+        try {
+            testMarketDataHandling();
+            std::cout << "Market data handling test completed\n" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Market data handling test failed: " << e.what() << std::endl;
+            throw;
+        }
+
+        try {
+            testSystemStateTransitions();
+            std::cout << "System state transitions test completed\n" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "System state transitions test failed: " << e.what() << std::endl;
+            throw;
+        }
+
+        try {
+            testConcurrentOperations();
+            std::cout << "Concurrent operations test completed\n" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Concurrent operations test failed: " << e.what() << std::endl;
+            throw;
+        }
+
+        try {
+            testMemoryOptimization();
+            std::cout << "Memory optimization test completed\n" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Memory optimization test failed: " << e.what() << std::endl;
+            throw;
+        }
 
         std::cout << "\nAll trading manager tests completed successfully!\n" << std::endl;
         return 0;
-    }catch (const std::exception& e){
-        std::cerr<<"\nTest failed: " << e.what() << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "\nTest suite failed: " << e.what() << std::endl;
         return 1;
     }
 }

@@ -131,32 +131,40 @@ bool tradingManager::beginTransaction() {
     }
 }
  
-            bool tradingManager::rollbackTransaction(){
-                std::lock_guard<std::mutex> lock(m_transaction_mutex);
-    
-                try {
-                  if (!m_current_transaction) {
-                      return false;
-                  }
+  bool tradingManager::rollbackTransaction() {
+    std::lock_guard<std::mutex> lock(m_transaction_mutex);
 
-                  auto* txNode = static_cast<transactionNode*>(m_current_transaction);
-                  bool success = m_transaction_allocator.rollbackTransaction(txNode);
-                  if (success) {
-                    auto thread_id = std::this_thread::get_id();
-                    m_thread_transactions.erase(thread_id);
-                    m_transaction_allocator.endTransaction(txNode);
-                    m_current_transaction = nullptr;
-            
-                    if (m_pending_transactions > 0) {
-                      m_pending_transactions--;
-                    }
-                  }
-                  return success;
-                } catch (const std::exception& e) {
-                    std::cout << "Exception in rollbackTransaction: " << e.what() << std::endl;
-                  return false;
-                }
+    try {
+        auto thread_id = std::this_thread::get_id();
+        transactionNode* txNode = nullptr;
+        
+        {
+            std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+            auto it = m_thread_transactions.find(thread_id);
+            if (it != m_thread_transactions.end()) {
+                txNode = it->second;
+                m_thread_transactions.erase(it);
             }
+        }
+        
+        if (!txNode) {
+            std::cerr << "No active transaction found for rollback" << std::endl;
+            return false;
+        }
+
+        bool success = m_transaction_allocator.rollbackTransaction(txNode);
+        if (success) {
+            m_transaction_allocator.endTransaction(txNode);
+            if (m_pending_transactions > 0) {
+                m_pending_transactions--;
+            }
+        }
+        return success;
+    } catch (const std::exception& e) {
+        std::cerr << "Exception in rollbackTransaction: " << e.what() << std::endl;
+        return false;
+    }
+}         
 
             void tradingManager::updateOrderBook(const std::string& symbol){
                 if (symbol.empty()){
@@ -216,79 +224,21 @@ bool tradingManager::beginTransaction() {
                 }
             }
             
-            // bool tradingManager::submitOrder(const order& ord){
-            //     if (m_status != Status::RUNNING){
-            //         return false;
-            //     }
-            //     if (!validateOrder(ord)){
-            //         return false;
-            //     }
-            //     auto start_time = std::chrono::high_resolution_clock::now();
-            //     try{
-            //         // Begin a new transaction
-            //         if (m_config.enable_transactions){
-            //             if (!beginTransaction()) return false;
-            //         }
-
-            //         // Allocate order memory
-            //         OrderNode* order_node = m_order_allocator.allocateOrder();
-            //         if (!order_node){
-            //             if (m_config.enable_transactions){
-            //                 rollbackTransaction();
-            //             }
-            //             return false;
-            //         }
-            //         order_node -> price = ord.price;
-            //         order_node -> quantity = ord.quantity;
-            //         order_node -> order_id = ord.order_id;
-            //         order_node -> parent_level = nullptr;
-            //         order_node -> next = nullptr;
-            //         order_node -> prev = nullptr;
-
-                  
-            //         try{
-            //             // Update order book
-            //             updateOrderBook(ord.symbol);
-            //         }catch (...){
-            //             m_order_allocator.deallocateOrder(order_node);
-            //             if (m_config.enable_transactions){
-            //                 rollbackTransaction();
-            //             }
-            //             return false;
-            //         }
-
-            //         // Update metrics
-            //         m_active_orders++;
-            //         auto end_time = std::chrono::high_resolution_clock::now();
-            //         auto latency = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-            //         updateMetrics(static_cast<double>(latency));
-
-            //         if (m_config.enable_transactions){
-            //             if (!commitTransaction()){
-            //                 m_order_allocator.deallocateOrder(order_node);
-            //                 return false;
-            //             }
-            //         }
-            //         return true;
-            //     } catch(...){
-            //         if (m_config.enable_transactions){
-            //             rollbackTransaction();
-            //         }
-            //         return false; 
-            //     }
-            // }
-               bool tradingManager::submitOrder(const order& ord) {
+            bool tradingManager::submitOrder(const order& ord) {
     if (m_status != Status::RUNNING) {
+        std::cerr << "Order submission failed: Trading system not running" << std::endl;
         return false;
     }
     
     if (!validateOrder(ord)) {
+        std::cerr << "Order submission failed: Invalid order" << std::endl;
         return false;
     }
     
     try {
         if (m_config.enable_transactions) {
             if (!beginTransaction()) {
+                std::cerr << "Order submission failed: Could not begin transaction" << std::endl;
                 return false;
             }
         }
@@ -300,45 +250,49 @@ bool tradingManager::beginTransaction() {
         }
         
         if (!order_node) {
+            std::cerr << "Order submission failed: Could not allocate order" << std::endl;
             if (m_config.enable_transactions) {
                 rollbackTransaction();
             }
             return false;
         }
 
+        // Initialize order node
         order_node->price = ord.price;
         order_node->quantity = ord.quantity;
-        m_order_allocator.registerOrder(ord.order_id, order_node);
-
+        
         try {
+            m_order_allocator.registerOrder(ord.order_id, order_node);
             updateOrderBook(ord.symbol);
-        } catch (...) {
+            m_active_orders++;
+            
+            if (m_config.enable_transactions) {
+                if (!commitTransaction()) {
+                    std::cerr << "Order submission failed: Could not commit transaction" << std::endl;
+                    m_order_allocator.deallocateOrder(order_node);
+                    m_active_orders--;
+                    return false;
+                }
+            }
+            
+            std::cout << "Order " << ord.order_id << " submitted successfully" << std::endl;
+            return true;
+        } catch (const std::exception& e) {
+            std::cerr << "Order submission failed with error: " << e.what() << std::endl;
             m_order_allocator.deallocateOrder(order_node);
             if (m_config.enable_transactions) {
                 rollbackTransaction();
             }
             return false;
         }
-
-        m_active_orders++;
-        
-        if (m_config.enable_transactions) {
-            if (!commitTransaction()) {
-                m_order_allocator.deallocateOrder(order_node);
-                return false;
-            }
-        }
-        return true;
-    } catch (...) {
+    } catch (const std::exception& e) {
+        std::cerr << "Order submission failed with error: " << e.what() << std::endl;
         if (m_config.enable_transactions) {
             rollbackTransaction();
         }
         return false;
     }
-}        
-
-
-    
+}                  
               void tradingManager::handleMarketData(const marketData& data){
                 if (m_status != Status::RUNNING) return;
 
@@ -454,29 +408,57 @@ bool tradingManager::beginTransaction() {
                 m_metrics -> last_update = std::chrono::high_resolution_clock::now();
             }
 
-            void tradingManager::cleanupResources(){
-                
-                try {
+            void tradingManager::cleanupResources() {
+    try {
+        std::cout << "Starting resource cleanup..." << std::endl;
         
-                    m_active_orders.store(0);
-                    m_total_trades.store(0);
-                    m_pending_transactions.store(0);
-                    m_total_latency.store(0.0);
-                    m_max_latency.store(0.0);
-                    
-                    if (m_metrics) {
-                        m_metrics->order_count = 0;
-                        m_metrics->trade_count = 0;
-                        m_metrics->avg_latency = 0.0;
-                        m_metrics->last_update = std::chrono::high_resolution_clock::now();
+        if (m_status == Status::RUNNING) {
+            // Try to stop gracefully first
+            if (!stop()) {
+                std::cerr << "Warning: Failed to stop trading system gracefully" << std::endl;
+            }
+        }
+
+        // Clean up transactions first
+        {
+            std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+            for (auto& pair : m_thread_transactions) {
+                if (pair.second) {
+                    try {
+                        m_transaction_allocator.rollbackTransaction(pair.second);
+                        m_transaction_allocator.endTransaction(pair.second);
+                    } catch (const std::exception& e) {
+                        std::cerr << "Warning: Failed to cleanup transaction: " << e.what() << std::endl;
                     }
-                    
-                    m_status = Status::STARTING;
-                } catch (...) {
-                    
                 }
             }
+            m_thread_transactions.clear();
+        }
 
+        // Reset all counters
+        m_active_orders.store(0, std::memory_order_release);
+        m_total_trades.store(0, std::memory_order_release);
+        m_pending_transactions.store(0, std::memory_order_release);
+        m_total_latency.store(0.0, std::memory_order_release);
+        m_max_latency.store(0.0, std::memory_order_release);
+
+        // Reset metrics last
+        if (m_metrics) {
+            m_metrics->order_count = 0;
+            m_metrics->trade_count = 0;
+            m_metrics->avg_latency = 0.0;
+            m_metrics->last_update = std::chrono::high_resolution_clock::now();
+        }
+
+        // Set final status
+        m_status = Status::STARTING;
+        
+        std::cout << "Resources cleaned up successfully" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error during cleanup: " << e.what() << std::endl;
+        throw; // Re-throw to signal test failure
+    }
+}
             std::size_t tradingManager::calculateMemoryUsed() const{
                 return m_order_allocator.getStats().total_memory_used + m_market_data_allocator.getStats().total_memory_used + 
                 m_transaction_allocator.getStats().total_memory_used;

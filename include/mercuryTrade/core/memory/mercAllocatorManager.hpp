@@ -41,17 +41,17 @@ private:
 public:
   //Constructor  needs to initialize the reference member
   AllocatorManager() : m_tracker(MemoryTracker::instance()) {
-    initializePools();
+      initializePools();
   }
   ~AllocatorManager() noexcept;
 
-  //Prevent copying 
+  // Prevent copying
   AllocatorManager(const AllocatorManager&) = delete;
-  AllocatorManager& operator = (const AllocatorManager&) noexcept = delete;
+  AllocatorManager& operator=(const AllocatorManager&) noexcept = delete;
 
-  //Allow moving
-  AllocatorManager(AllocatorManager&&) noexcept = default;
-  AllocatorManager& operator = (AllocatorManager&&) noexcept = default;   
+  // Disallow moving
+  AllocatorManager(AllocatorManager&&) noexcept = delete;
+  AllocatorManager& operator=(AllocatorManager&&) noexcept = delete;
   //Core allocation methods
   void* allocate(std::size_t size, const char* file = nullptr, int line = 0);
   void deallocate(void* ptr, std::size_t size);

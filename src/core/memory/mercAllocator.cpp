@@ -38,7 +38,7 @@ namespace mercuryTrade {
         : m_free_list(other.m_free_list.load(std::memory_order_acquire))
         , m_pool(std::move(other.m_pool))
         , m_pool_size(other.m_pool_size)
-        , m_blocks_in_use(other.m_blocks_in_use.load(std::memory_order_release))
+        , m_blocks_in_use(other.m_blocks_in_use.load(std::memory_order_relaxed))
       {
         // Reset the state of other` 
         other.m_free_list.store(nullptr,std::memory_order_release);
