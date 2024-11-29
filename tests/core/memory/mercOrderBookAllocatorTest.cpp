@@ -147,6 +147,7 @@ void testPriceLevelManagement() {
             if (order && !order->order_id.empty()) {
                 std::cout << "Unregistering order " << order->order_id << std::endl;
                 allocator.unregisterOrder(order->order_id);
+                allocator.deallocateOrder(order);
             }
         }
         
