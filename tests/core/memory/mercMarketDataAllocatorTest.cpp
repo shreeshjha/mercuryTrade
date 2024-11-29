@@ -135,7 +135,7 @@ void testInvalidConfiguration() {
 
     try {
         marketDataAllocator allocator(invalid_config);
-    } catch (std::invalid_argument) { // Removed const&
+    } catch (const std::runtime_error&) { // Removed const&
         exception_thrown = true;
     }
     verify(exception_thrown, TEST_NAME, "Should throw on invalid configuration");

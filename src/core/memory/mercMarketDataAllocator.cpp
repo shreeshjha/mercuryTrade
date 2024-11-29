@@ -10,7 +10,7 @@ namespace mercuryTrade{
             marketDataAllocator::marketDataAllocator(const bufferConfig &config) : m_config(config){
                 // What happends when buffer configuration is invalid
                 if (config.quote_size == 0 || config.trade_size == 0 || config.snapshot_size == 0 || config.buffer_capacity == 0){
-                    throw std::invalid_argument("Invalid buffer configuration"s);
+                    throw std::runtime_error("Invalid buffer configuration"s);
                 }
             }
 
