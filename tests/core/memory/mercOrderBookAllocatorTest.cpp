@@ -15,6 +15,9 @@ void verify(bool condition, const char* testName, const char* message) {
     }
     std::cout << testName << ": PASSED" << std::endl;
 }
+void cleanupTest(OrderBookAllocator& allocator) {
+    allocator.cleanup();  // Explicitly call cleanup to deallocate memory
+}
 
 // Test basic order allocation and deallocation
 void testBasicOrderAllocation() {
@@ -49,6 +52,7 @@ void testBasicOrderAllocation() {
     stats = allocator.getStats();
     verify(stats.active_orders == 0, TEST_NAME, "Order deallocation failed");
     verify(allocator.findOrder("ORDER1") == nullptr, TEST_NAME, "Order still found after deallocation");
+    cleanupTest(allocator);
 }
 
 // Test price level management
@@ -169,6 +173,7 @@ void testPriceLevelManagement() {
         verify(stats.active_price_levels == 0, TEST_NAME, "Price level not properly deallocated");
         
         std::cout << TEST_NAME << " completed successfully" << std::endl;
+        cleanupTest(allocator);
         
     } catch (const std::exception& e) {
         std::cerr << TEST_NAME << " failed with exception: " << e.what() << std::endl;
@@ -196,6 +201,7 @@ void testPriceLevelManagement() {
         }
         
         throw;
+        cleanupTest(allocator);
     }
 }
 // Test Concurrent Operations
@@ -310,6 +316,7 @@ void testConcurrentOperations() {
     auto stats = allocator.getStats();
     verify(stats.active_orders == 0, TEST_NAME, "Memory leak detected");
     verify(stats.active_price_levels == 0, TEST_NAME, "Price level leak detected");
+    cleanupTest(allocator);
 }
 
 // Test capacity limits
@@ -353,6 +360,7 @@ void testCapacityLimits() {
     for (auto level : levels) {
         allocator.deallocatePriceLevel(level);
     }
+    cleanupTest(allocator);
 }
 
 int main() {
