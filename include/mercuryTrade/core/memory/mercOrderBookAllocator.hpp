@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <mutex>
+#include <unordered_set>
 
 namespace mercuryTrade {
 namespace core {
@@ -48,6 +49,9 @@ public:
         std::size_t peak_memory;
     };
 
+    std::unordered_set<PriceLevel*> m_allocated_price_levels;
+    std::mutex m_tracking_mutex;
+
     // Constructor with configuration
     explicit OrderBookAllocator(const Config& config = Config::getDefaultConfig());
     
@@ -80,6 +84,8 @@ public:
     Stats getStats() const;
     bool hasCapacity() const;
     std::size_t calculateTotalMemoryUsed() const;
+
+    void cleanup();
 private:
     AllocatorManager m_allocator;
     Config m_config;

@@ -33,6 +33,8 @@ OrderBookAllocator::~OrderBookAllocator() noexcept {
         // No need to deallocate pools here - AllocatorManager handles that
         m_order_pool = nullptr;
         m_price_level_pool = nullptr;
+
+        cleanup();
         
         std::cout << "[OrderBookAllocator] Cleanup completed" << std::endl;
     } catch (const std::exception& e) {
@@ -43,32 +45,6 @@ OrderBookAllocator::~OrderBookAllocator() noexcept {
 }
 
 OrderNode* OrderBookAllocator::allocateOrder() {
-    // if (m_active_orders.load(std::memory_order_relaxed) >= m_config.max_orders) {
-    //     return nullptr;
-    // }
-
-    // try {
-    //     // Allocate memory for the order
-    //     std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
-    //     void* memory = m_allocator.allocate(order_size);
-    //     if (!memory) return nullptr;
-
-    //     // Properly construct the OrderNode
-    //     OrderNode* node = new (memory) OrderNode();  // Placement new
-        
-    //     // Initialize all fields to safe defaults
-    //     node->price = 0.0;
-    //     node->quantity = 0.0;
-    //     node->order_id.clear();
-    //     node->next = nullptr;
-    //     node->prev = nullptr;
-    //     node->parent_level = nullptr;
-        
-    //     m_active_orders.fetch_add(1, std::memory_order_release);
-    //     return node;
-    // } catch (...) {
-    //     return nullptr;
-    // }
     if (m_active_orders.load(std::memory_order_relaxed) >= m_config.max_orders) {
         return nullptr;
     }
@@ -161,6 +137,12 @@ PriceLevel* OrderBookAllocator::allocatePriceLevel() {
         level->prev = nullptr;
         level->order_count = 0;
         level->total_quantity = 0.0;
+
+        {
+            // Track allocated level
+            std::lock_guard<std::mutex> lock(m_tracking_mutex);
+            m_allocated_price_levels.insert(level);
+        }
         
         // Update statistics
         m_active_price_levels++;
@@ -295,6 +277,16 @@ bool OrderBookAllocator::hasCapacity() const {
     return m_active_orders.load() < m_config.max_orders &&
            m_active_price_levels.load() < m_config.max_price_levels;
 }
+
+void OrderBookAllocator::cleanup() {
+    std::lock_guard<std::mutex> lock(m_tracking_mutex);
+    for (PriceLevel* level : m_allocated_price_levels) {
+        m_allocator.deallocate(level, sizeof(PriceLevel)); // Deallocate memory
+    }
+    m_allocated_price_levels.clear(); // Clear the set
+    m_active_price_levels.store(0, std::memory_order_relaxed); // Reset count
+}
+
 
 }}} 
 
