@@ -1,13 +1,16 @@
 #include "../../../include/mercuryTrade/core/memory/mercMarketDataAllocator.hpp"
 #include <stdexcept>
 
+
+using namespace std::string_literals;
+
 namespace mercuryTrade{
     namespace core{
         namespace memory{
             marketDataAllocator::marketDataAllocator(const bufferConfig &config) : m_config(config){
                 // What happends when buffer configuration is invalid
                 if (config.quote_size == 0 || config.trade_size == 0 || config.snapshot_size == 0 || config.buffer_capacity == 0){
-                    throw std::invalid_argument("Invalid buffer configuration");
+                    throw std::invalid_argument("Invalid buffer configuration"s);
                 }
             }
 
