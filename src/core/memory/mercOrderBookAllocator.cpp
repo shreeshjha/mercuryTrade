@@ -264,19 +264,13 @@ void OrderBookAllocator::reset() {
     try {
         std::cout << "[OrderBookAllocator::reset] Starting reset process..." << std::endl;
 
-        // Debug log before acquiring the mutex
-        std::cout << "[OrderBookAllocator::reset] Before acquiring m_order_map_mutex" << std::endl;
-
         {
             std::lock_guard<std::mutex> lock(m_order_map_mutex);
 
-            // Debug log after acquiring the mutex
-            std::cout << "[OrderBookAllocator::reset] Acquired m_order_map_mutex" << std::endl;
 
             for (auto& pair : m_order_map) {
                 if (pair.second) {
-                    std::cout << "[OrderBookAllocator::reset] Clearing order with ID: " << pair.second->order_id << std::endl;
-
+                
                     // Clear string data
                     pair.second->order_id.clear();
                     pair.second->order_id.shrink_to_fit();
@@ -287,20 +281,15 @@ void OrderBookAllocator::reset() {
                     pair.second->parent_level = nullptr;
                 }
             }
-
-            std::cout << "[OrderBookAllocator::reset] Clearing m_order_map" << std::endl;
             m_order_map.clear();
         }
 
-        std::cout << "[OrderBookAllocator::reset] Clearing allocated price levels" << std::endl;
 
         for (PriceLevel* level : m_allocated_price_levels) {
-            std::cout << "[OrderBookAllocator::reset] Clearing price level" << std::endl;
             deallocatePriceLevel(level);
         }
         m_allocated_price_levels.clear();
 
-        std::cout << "[OrderBookAllocator::reset] Resetting statistics" << std::endl;
 
         // Reset statistics
         m_active_orders.store(0, std::memory_order_release);
