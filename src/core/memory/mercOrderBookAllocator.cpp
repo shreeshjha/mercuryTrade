@@ -25,18 +25,25 @@ OrderBookAllocator::OrderBookAllocator(const Config& config)
 
 OrderBookAllocator::~OrderBookAllocator() noexcept {
  try {
-        std::cout << "[OrderBookAllocator] Starting cleanup..." << std::endl;
-        
-        // First reset internal state
-        reset();
-        
-        // No need to deallocate pools here - AllocatorManager handles that
-        m_order_pool = nullptr;
-        m_price_level_pool = nullptr;
+         std::cout << "[OrderBookAllocator] Starting cleanup..." << std::endl;
 
+        // Ensure all allocated orders and price levels are cleaned up
+        reset();
+
+        // Deallocate the memory pools if not null
+        if (m_order_pool) {
+            std::size_t order_size = sizeof(OrderNode) + m_config.order_data_size;
+            m_allocator.deallocate(m_order_pool, order_size * m_config.max_orders);
+            m_order_pool = nullptr;
+        }
+
+        if (m_price_level_pool) {
+            m_allocator.deallocate(m_price_level_pool, sizeof(PriceLevel) * m_config.max_price_levels);
+            m_price_level_pool = nullptr;
+        }
         cleanup();
-        
-        std::cout << "[OrderBookAllocator] Cleanup completed" << std::endl;
+
+        std::cout << "[OrderBookAllocator] Cleanup completed successfully" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "[OrderBookAllocator] Exception during cleanup: " << e.what() << std::endl;
     } catch (...) {
@@ -218,33 +225,90 @@ void OrderBookAllocator::unregisterOrder(const std::string& order_id) {
   m_order_map.erase(order_id);
 }
 
+// void OrderBookAllocator::reset() {
+//     try {
+//         // First safely clear all order data
+//         {
+//             std::lock_guard<std::mutex> lock(m_order_map_mutex);
+//             for (auto& pair : m_order_map) {
+//                 if (pair.second) {
+//                     // Clear string data
+//                     pair.second->order_id.clear();
+//                    pair.second->order_id.shrink_to_fit();
+                    
+//                     // Clear pointers
+//                     pair.second->next = nullptr;
+//                     pair.second->prev = nullptr;
+//                     pair.second->parent_level = nullptr;
+//                 }
+//             }
+//             m_order_map.clear();
+//         }
+
+//         // Reset statistics
+//         m_active_orders.store(0);
+//         m_active_price_levels.store(0);
+//         m_order_modifications.store(0); // Fixed this from m_active_modifications
+//         m_peak_orders.store(0);
+//         m_peak_memory.store(0);
+        
+//         std::cout << "[OrderBookAllocator::reset] Successfully reset allocator state" << std::endl;
+//     } catch (const std::exception& e) {
+//         std::cerr << "[OrderBookAllocator::reset] Error during reset: " << e.what() << std::endl;
+//     } catch (...) {
+//         std::cerr << "[OrderBookAllocator::reset] Unknown error during reset" << std::endl;
+//     }
+// }
+
 void OrderBookAllocator::reset() {
     try {
-        // First safely clear all order data
+        std::cout << "[OrderBookAllocator::reset] Starting reset process..." << std::endl;
+
+        // Debug log before acquiring the mutex
+        std::cout << "[OrderBookAllocator::reset] Before acquiring m_order_map_mutex" << std::endl;
+
         {
             std::lock_guard<std::mutex> lock(m_order_map_mutex);
+
+            // Debug log after acquiring the mutex
+            std::cout << "[OrderBookAllocator::reset] Acquired m_order_map_mutex" << std::endl;
+
             for (auto& pair : m_order_map) {
                 if (pair.second) {
+                    std::cout << "[OrderBookAllocator::reset] Clearing order with ID: " << pair.second->order_id << std::endl;
+
                     // Clear string data
                     pair.second->order_id.clear();
-                   pair.second->order_id.shrink_to_fit();
-                    
+                    pair.second->order_id.shrink_to_fit();
+
                     // Clear pointers
                     pair.second->next = nullptr;
                     pair.second->prev = nullptr;
                     pair.second->parent_level = nullptr;
                 }
             }
+
+            std::cout << "[OrderBookAllocator::reset] Clearing m_order_map" << std::endl;
             m_order_map.clear();
         }
 
+        std::cout << "[OrderBookAllocator::reset] Clearing allocated price levels" << std::endl;
+
+        for (PriceLevel* level : m_allocated_price_levels) {
+            std::cout << "[OrderBookAllocator::reset] Clearing price level" << std::endl;
+            deallocatePriceLevel(level);
+        }
+        m_allocated_price_levels.clear();
+
+        std::cout << "[OrderBookAllocator::reset] Resetting statistics" << std::endl;
+
         // Reset statistics
-        m_active_orders.store(0);
-        m_active_price_levels.store(0);
-        m_order_modifications.store(0); // Fixed this from m_active_modifications
+        m_active_orders.store(0, std::memory_order_release);
+        m_active_price_levels.store(0, std::memory_order_release);
+        m_order_modifications.store(0);
         m_peak_orders.store(0);
         m_peak_memory.store(0);
-        
+
         std::cout << "[OrderBookAllocator::reset] Successfully reset allocator state" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "[OrderBookAllocator::reset] Error during reset: " << e.what() << std::endl;
@@ -252,6 +316,9 @@ void OrderBookAllocator::reset() {
         std::cerr << "[OrderBookAllocator::reset] Unknown error during reset" << std::endl;
     }
 }
+
+
+
 
 OrderBookAllocator::Stats OrderBookAllocator::getStats() const {
     return Stats{
