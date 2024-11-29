@@ -22,7 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang-12 lld-12 libc++-12-dev libc++abi-12-dev libasan6 libunwind-dev cmake build-essential
+        sudo apt-get install -y clang-12 lld-12 libc++-12-dev libc++abi-12-dev libasan6 libunwind-dev cmake build-essential valgrind
         sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-12 100
         sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-12 100
 
@@ -43,7 +43,7 @@ jobs:
 
     - name: Run Tests with ASan
       env:
-        ASAN_OPTIONS: "detect_leaks=0 log_path=asan.log"
+        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log verbosity=1"
       run: |
         cd build
         ctest --output-on-failure || true
@@ -54,6 +54,11 @@ jobs:
         cd build
         valgrind --leak-check=full ctest --output-on-failure || true
 
+    - name: Rerun Failed Test
+      run: |
+        cd build
+        ctest -R MarketDataAllocatorTest --output-on-failure --verbose || true
+
     - name: Upload Logs and Test Results
       if: always()
       uses: actions/upload-artifact@v3
@@ -62,6 +67,7 @@ jobs:
         path: |
           build
           build/asan.log
+
 
   build-macos:
     runs-on: macos-latest
