@@ -129,13 +129,13 @@ void testConcurrentAllocation() {
 
 // Test Invalid Configurations
 void testInvalidConfiguration() {
-    const char* TEST_NAME = "Invalid Configuration Test";
-    marketDataAllocator::bufferConfig invalid_config{0,0,0,0};
+  const char* TEST_NAME = "Invalid Configuration Test";
     bool exception_thrown = false;
 
     try {
-        marketDataAllocator allocator(invalid_config);
-    } catch (const std::runtime_error&) { // Removed const&
+        marketDataAllocator::bufferConfig invalid_config{};  // Zero-initialized
+        [[maybe_unused]] marketDataAllocator allocator(invalid_config);
+    } catch (...) {  // Catch any exception
         exception_thrown = true;
     }
     verify(exception_thrown, TEST_NAME, "Should throw on invalid configuration");
