@@ -5,6 +5,11 @@ project(mercuryTrade VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+## Debug 
+set(CMAKE_BUILD_TYPE Debug) # Ensure the Debug build type is used
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+
+
 # Add compiler warnings
 if(MSVC)
     add_compile_options(/W4)
