@@ -293,26 +293,54 @@ bool tradingManager::beginTransaction() {
         return false;
     }
 }                  
-              void tradingManager::handleMarketData(const marketData& data){
-                if (m_status != Status::RUNNING) return;
+            //   void tradingManager::handleMarketData(const marketData& data){
+            //     if (m_status != Status::RUNNING) return;
 
-                auto start_time = std::chrono::high_resolution_clock::now();
-                try{
-                    // Allocate market data memory
-                    void* data_buffer = m_market_data_allocator.allocateQuoteBuffer();
-                    if (!data_buffer){
-                        return;
-                    }
+            //     auto start_time = std::chrono::high_resolution_clock::now();
+            //     try{
+            //         // Allocate market data memory
+            //         void* data_buffer = m_market_data_allocator.allocateQuoteBuffer();
+            //         if (!data_buffer){
+            //             return;
+            //         }
 
-                    // Process market data
-                    updateOrderBook(data.symbol);
-                    auto end_time = std::chrono::high_resolution_clock::now();
-                    auto latency = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-                    updateMetrics(static_cast<double>(latency));
-                }catch (...){
+            //         // Process market data
+            //         updateOrderBook(data.symbol);
+            //         auto end_time = std::chrono::high_resolution_clock::now();
+            //         auto latency = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+            //         updateMetrics(static_cast<double>(latency));
+            //     }catch (...){
 
-                }
-            }
+            //     }
+            // }
+            void tradingManager::handleMarketData(const marketData& data) {
+    if (m_status != Status::RUNNING) return;
+
+    void* data_buffer = nullptr;
+    auto start_time = std::chrono::high_resolution_clock::now();
+    try {
+        // Allocate market data memory
+        data_buffer = m_market_data_allocator.allocateQuoteBuffer();
+        if (!data_buffer) {
+            return;  // Allocation failed
+        }
+
+        // Process market data
+        updateOrderBook(data.symbol);
+    } catch (...) {
+        // Ensure no exceptions escape
+    }
+
+    // Clean up buffer after processing
+    if (data_buffer) {
+        m_market_data_allocator.deallocateBuffer(data_buffer,m_config.market_data_size);
+    }
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto latency = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+    updateMetrics(static_cast<double>(latency));
+}
+
 
             bool tradingManager::start(){
                 if (m_status != Status::STARTING && m_status != Status::PAUSED){
@@ -408,41 +436,82 @@ bool tradingManager::beginTransaction() {
                 m_metrics -> last_update = std::chrono::high_resolution_clock::now();
             }
 
-            void tradingManager::cleanupResources() {
+//             void tradingManager::cleanupResources() {
+//     try {
+//         std::cout << "Starting resource cleanup..." << std::endl;
+        
+//         if (m_status == Status::RUNNING) {
+//             // Try to stop gracefully first
+//             if (!stop()) {
+//                 std::cerr << "Warning: Failed to stop trading system gracefully" << std::endl;
+//             }
+//         }
+
+//         // Clean up transactions first
+//         {
+//             std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
+//             for (auto& pair : m_thread_transactions) {
+//                 if (pair.second) {
+//                     try {
+//                         m_transaction_allocator.rollbackTransaction(pair.second);
+//                         m_transaction_allocator.endTransaction(pair.second);
+//                     } catch (const std::exception& e) {
+//                         std::cerr << "Warning: Failed to cleanup transaction: " << e.what() << std::endl;
+//                     }
+//                 }
+//             }
+//             m_thread_transactions.clear();
+//         }
+
+//         // Reset all counters
+//         m_active_orders.store(0, std::memory_order_release);
+//         m_total_trades.store(0, std::memory_order_release);
+//         m_pending_transactions.store(0, std::memory_order_release);
+//         m_total_latency.store(0.0, std::memory_order_release);
+//         m_max_latency.store(0.0, std::memory_order_release);
+
+//         // Reset metrics last
+//         if (m_metrics) {
+//             m_metrics->order_count = 0;
+//             m_metrics->trade_count = 0;
+//             m_metrics->avg_latency = 0.0;
+//             m_metrics->last_update = std::chrono::high_resolution_clock::now();
+//         }
+
+//         // Set final status
+//         m_status = Status::STARTING;
+        
+//         std::cout << "Resources cleaned up successfully" << std::endl;
+//     } catch (const std::exception& e) {
+//         std::cerr << "Error during cleanup: " << e.what() << std::endl;
+//         throw; // Re-throw to signal test failure
+//     }
+// }
+
+    void tradingManager::cleanupResources() {
     try {
         std::cout << "Starting resource cleanup..." << std::endl;
-        
+
         if (m_status == Status::RUNNING) {
-            // Try to stop gracefully first
-            if (!stop()) {
-                std::cerr << "Warning: Failed to stop trading system gracefully" << std::endl;
-            }
+            stop();
         }
 
-        // Clean up transactions first
+        // Clean up transactions
         {
             std::lock_guard<std::mutex> tx_lock(m_thread_transactions_mutex);
             for (auto& pair : m_thread_transactions) {
                 if (pair.second) {
-                    try {
-                        m_transaction_allocator.rollbackTransaction(pair.second);
-                        m_transaction_allocator.endTransaction(pair.second);
-                    } catch (const std::exception& e) {
-                        std::cerr << "Warning: Failed to cleanup transaction: " << e.what() << std::endl;
-                    }
+                    m_transaction_allocator.rollbackTransaction(pair.second);
+                    m_transaction_allocator.endTransaction(pair.second);
                 }
             }
             m_thread_transactions.clear();
         }
 
-        // Reset all counters
-        m_active_orders.store(0, std::memory_order_release);
-        m_total_trades.store(0, std::memory_order_release);
-        m_pending_transactions.store(0, std::memory_order_release);
-        m_total_latency.store(0.0, std::memory_order_release);
-        m_max_latency.store(0.0, std::memory_order_release);
+        // Clear order allocator
+        m_order_allocator.reset();
 
-        // Reset metrics last
+        // Reset performance metrics
         if (m_metrics) {
             m_metrics->order_count = 0;
             m_metrics->trade_count = 0;
@@ -450,15 +519,22 @@ bool tradingManager::beginTransaction() {
             m_metrics->last_update = std::chrono::high_resolution_clock::now();
         }
 
-        // Set final status
+        m_active_orders.store(0);
+        m_pending_transactions.store(0);
+        m_total_trades.store(0);
+        m_total_latency.store(0.0);
+        m_max_latency.store(0.0);
+
         m_status = Status::STARTING;
-        
+
         std::cout << "Resources cleaned up successfully" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Error during cleanup: " << e.what() << std::endl;
-        throw; // Re-throw to signal test failure
+        throw;  // Rethrow to signal failure
     }
 }
+
+
             std::size_t tradingManager::calculateMemoryUsed() const{
                 return m_order_allocator.getStats().total_memory_used + m_market_data_allocator.getStats().total_memory_used + 
                 m_transaction_allocator.getStats().total_memory_used;
