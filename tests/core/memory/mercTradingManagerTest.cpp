@@ -17,8 +17,6 @@ void verify(bool condition, const char* testName, const char* message){
     std::cout<< testName << ": PASSED" << std::endl;
 }
 
-
-
 // Helper function to create a test order
 order createTestOrder(const std::string& id, const std::string& symbol, double price, double quantity, bool is_buy){
     order ord;

@@ -337,7 +337,7 @@ bool tradingManager::beginTransaction() {
 
     // Ensure the buffer is deallocated
     if (data_buffer) {
-        m_market_data_allocator.deallocateBuffer(data_buffer, m_market_data_allocator.getConfig().quote_size);
+        m_market_data_allocator.deallocateBuffer(data_buffer, m_market_data_allocator.getConfig().quote_size * m_market_data_allocator.getConfig().buffer_capacity);
     }
 }
 
