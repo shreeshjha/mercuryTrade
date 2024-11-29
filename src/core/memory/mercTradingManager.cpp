@@ -316,30 +316,31 @@ bool tradingManager::beginTransaction() {
             void tradingManager::handleMarketData(const marketData& data) {
     if (m_status != Status::RUNNING) return;
 
-    void* data_buffer = nullptr;
     auto start_time = std::chrono::high_resolution_clock::now();
+    void* data_buffer = nullptr;
     try {
         // Allocate market data memory
         data_buffer = m_market_data_allocator.allocateQuoteBuffer();
         if (!data_buffer) {
-            return;  // Allocation failed
+            return;
         }
 
         // Process market data
         updateOrderBook(data.symbol);
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto latency = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        updateMetrics(static_cast<double>(latency));
     } catch (...) {
-        // Ensure no exceptions escape
+        std::cerr << "Exception during market data handling." << std::endl;
     }
 
-    // Clean up buffer after processing
+    // Ensure the buffer is deallocated
     if (data_buffer) {
-        m_market_data_allocator.deallocateBuffer(data_buffer,m_config.market_data_size);
+        m_market_data_allocator.deallocateBuffer(data_buffer, m_market_data_allocator.getConfig().quote_size);
     }
-
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto latency = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-    updateMetrics(static_cast<double>(latency));
 }
+
 
 
             bool tradingManager::start(){

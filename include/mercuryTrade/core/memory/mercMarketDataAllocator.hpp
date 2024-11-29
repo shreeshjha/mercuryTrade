@@ -53,6 +53,11 @@ namespace mercuryTrade{
 
                     bool hasCapacity() const noexcept;
 
+                    bufferConfig getConfig() const {
+                        return m_config;
+                    }
+
+
                     // Default config
                     static bufferConfig getDefaultConfig(){
                         return bufferConfig{
@@ -62,6 +67,7 @@ namespace mercuryTrade{
                             1000 // buffer capacity
                         };
                     }
+
             };
         }
     }

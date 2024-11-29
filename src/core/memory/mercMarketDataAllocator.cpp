@@ -68,6 +68,7 @@ namespace mercuryTrade{
 
                 return stats;
             }
+            
         }
     }
 }
