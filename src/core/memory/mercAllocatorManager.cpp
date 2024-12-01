@@ -70,52 +70,99 @@ void AllocatorManager::cleanup() noexcept {
 
 
 //Core allocation method 
-void * AllocatorManager::allocate(std::size_t size, const char* file, int line) {
-  if(size > MAX_BLOCK_SIZE) {
-    //For large allocations, use system allocator 
-    void* ptr = ::operator new(size, std::nothrow);
-    if(ptr) {
-      m_tracker.trackAllocation(ptr, size, file, line);
+// void * AllocatorManager::allocate(std::size_t size, const char* file, int line) {
+//   if(size > MAX_BLOCK_SIZE) {
+//     //For large allocations, use system allocator 
+//     void* ptr = ::operator new(size, std::nothrow);
+//     if(ptr) {
+//       m_tracker.trackAllocation(ptr, size, file, line);
+//     }
+//     return ptr;
+//   }
+
+//   std::lock_guard<std::mutex> lock(m_mutex);
+//   std::size_t poolIndex = findPoolIndex(size);
+
+//   if(poolIndex >= m_pools.size()) {
+//     throw std::runtime_error("Invalid pool index");
+//   }
+
+//   void *ptr = m_pools[poolIndex].allocator->allocate();
+//   if(!ptr) {
+//     throw std::bad_alloc();
+//   }
+//   m_tracker.trackAllocation(ptr, m_pools[poolIndex].block_size, file, line);
+//   return ptr;
+// }
+void* AllocatorManager::allocate(std::size_t size, const char* file, int line) {
+    if (size > MAX_BLOCK_SIZE) {
+        // For large allocations, use system allocator
+        void* ptr = ::operator new(size, std::nothrow);
+        if (ptr) {
+            m_tracker.trackAllocation(ptr, size, file, line);
+        }
+        return ptr;
     }
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    std::size_t poolIndex = findPoolIndex(size);
+
+    if (poolIndex >= m_pools.size()) {
+        throw std::runtime_error("Invalid pool index");
+    }
+
+    void* ptr = m_pools[poolIndex].allocator->allocate();
+    if (!ptr) {
+        throw std::bad_alloc();
+    }
+
+    m_tracker.trackAllocation(ptr, m_pools[poolIndex].block_size, file, line);
     return ptr;
-  }
-
-  std::lock_guard<std::mutex> lock(m_mutex);
-  std::size_t poolIndex = findPoolIndex(size);
-
-  if(poolIndex >= m_pools.size()) {
-    throw std::runtime_error("Invalid pool index");
-  }
-
-  void *ptr = m_pools[poolIndex].allocator->allocate();
-  if(!ptr) {
-    throw std::bad_alloc();
-  }
-  m_tracker.trackAllocation(ptr, m_pools[poolIndex].block_size, file, line);
-  return ptr;
 }
+
 
 // Core deallocation method
-void AllocatorManager::deallocate(void *ptr, std::size_t size) {
-  if(!ptr) return;
+// void AllocatorManager::deallocate(void *ptr, std::size_t size) {
+//   if(!ptr) return;
 
-  m_tracker.trackDeallocation(ptr);
+//   m_tracker.trackDeallocation(ptr);
 
-  if(size > MAX_BLOCK_SIZE) {
-    //For large allocations, use sysyem deallocator
-    ::operator delete(ptr, std::nothrow);
-    return;
-  }
+//   if(size > MAX_BLOCK_SIZE) {
+//     //For large allocations, use sysyem deallocator
+//     ::operator delete(ptr, std::nothrow);
+//     return;
+//   }
 
-  std::lock_guard<std::mutex> lock(m_mutex);
-  std::size_t poolIndex = findPoolIndex(size);
+//   std::lock_guard<std::mutex> lock(m_mutex);
+//   std::size_t poolIndex = findPoolIndex(size);
 
-  if(poolIndex >= m_pools.size()) {
-    throw std::runtime_error("Invalid pool index");
-  }
+//   if(poolIndex >= m_pools.size()) {
+//     throw std::runtime_error("Invalid pool index");
+//   }
 
-  m_pools[poolIndex].allocator->deallocate(ptr);
+//   m_pools[poolIndex].allocator->deallocate(ptr);
+// }
+void AllocatorManager::deallocate(void* ptr, std::size_t size) {
+    if (!ptr) return;
+
+    m_tracker.trackDeallocation(ptr);
+
+    if (size > MAX_BLOCK_SIZE) {
+        // For large allocations, use system deallocator
+        ::operator delete(ptr);
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    std::size_t poolIndex = findPoolIndex(size);
+
+    if (poolIndex >= m_pools.size()) {
+        throw std::runtime_error("Invalid pool index");
+    }
+
+    m_pools[poolIndex].allocator->deallocate(ptr);
 }
+
 
 void AllocatorManager::printMemoryReport() const {
   m_tracker.printReport();
