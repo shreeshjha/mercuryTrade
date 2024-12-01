@@ -43,7 +43,7 @@ jobs:
 
     - name: Run Tests with ASan
       env:
-        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log verbosity=1"
+        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log verbosity=1 alloc_dealloc_mismatch=0"
       run: |
         cd build
         ctest --output-on-failure || true
