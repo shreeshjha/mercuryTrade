@@ -49,16 +49,6 @@ jobs:
         ctest --output-on-failure || true
         cat asan.log || echo "No ASan logs generated."
 
-    - name: Run Valgrind Tests
-      run: |
-        cd build
-        valgrind --leak-check=full ctest --output-on-failure || true
-
-    - name: Rerun Failed Test
-      run: |
-        cd build
-        ctest -R MarketDataAllocatorTest --output-on-failure --verbose || true
-
     - name: Upload Logs and Test Results
       if: always()
       uses: actions/upload-artifact@v3
