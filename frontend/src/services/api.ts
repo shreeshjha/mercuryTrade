@@ -25,5 +25,15 @@ export const tradingApi = {
   getTradeHistory: async (symbol: string) => {
     const response = await axios.get<Trade[]>(`${API_BASE_URL}/trades/${symbol}`);
     return response.data;
-  }
+  },
+
+  getPriceHistory: async (symbol: string) => {
+    const response = await axios.get(`${API_BASE_URL}/market-data/${symbol}/history`);
+    return response.data;
+  },
+
+  getOrderBook: async (symbol: string) => {
+    const response = await axios.get(`${API_BASE_URL}/market-data/${symbol}/order-book`);
+    return response.data;
+  },
 };

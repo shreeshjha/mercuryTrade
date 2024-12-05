@@ -1,40 +1,35 @@
-import { Fragment, useState } from 'react'
-import { Dialog, Transition } from '@headlessui/react'
-import { Link } from 'react-router-dom'
+import { Fragment, useState } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Bars3Icon,
-  ChartBarIcon,
   HomeIcon,
   XMarkIcon,
   CurrencyDollarIcon,
-  ClockIcon,
+  WalletIcon,
+  ChartBarSquareIcon,
   UserIcon,
-} from '@heroicons/react/24/outline'
+} from '@heroicons/react/24/outline';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon, current: true },
-  { name: 'Trading', href: '/trading', icon: CurrencyDollarIcon, current: false },
-  { name: 'Market Data', href: '/market-data', icon: ChartBarIcon, current: false },
-  { name: 'History', href: '/history', icon: ClockIcon, current: false },
-  {
-    name: 'Profile',
-    href: '/profile',
-    icon: UserIcon, 
-    current: false
-  }
-]
+  { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Trading', href: '/trading', icon: CurrencyDollarIcon },
+  { name: 'Portfolio', href: '/portfolio', icon: WalletIcon },
+  { name: 'Positions', href: '/positions', icon: ChartBarSquareIcon },
+  { name: 'Profile', href: '/profile', icon: UserIcon },
+];
 
 function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(' ');
 }
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <>
       <div>
-        {/* Mobile sidebar */}
         <Transition.Root show={sidebarOpen} as={Fragment}>
           <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
             <Transition.Child
@@ -68,34 +63,26 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   </div>
                   <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 ring-1 ring-white/10">
                     <div className="flex h-16 shrink-0 items-center">
-                      <img
-                        className="h-8 w-auto"
-                        src="/logo.png"
-                        alt="Mercury Trade"
-                      />
+                      <img className="h-8 w-auto" src="/logo.png" alt="Mercury Trade" />
                     </div>
                     <nav className="flex flex-1 flex-col">
-                      <ul role="list" className="flex flex-1 flex-col gap-y-7">
-                        <li>
-                          <ul role="list" className="-mx-2 space-y-1">
-                            {navigation.map((item) => (
-                              <li key={item.name}>
-                                <Link
-                                  to={item.href}
-                                  className={classNames(
-                                    item.current
-                                      ? 'bg-gray-800 text-white'
-                                      : 'text-gray-400 hover:text-white hover:bg-gray-800',
-                                    'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
-                                  )}
-                                >
-                                  <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
-                                  {item.name}
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </li>
+                      <ul role="list" className="-mx-2 space-y-1">
+                        {navigation.map((item) => (
+                          <li key={item.name}>
+                            <Link
+                              to={item.href}
+                              className={classNames(
+                                location.pathname === item.href
+                                  ? 'bg-gray-800 text-white'
+                                  : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                                'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                              )}
+                            >
+                              <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+                              {item.name}
+                            </Link>
+                          </li>
+                        ))}
                       </ul>
                     </nav>
                   </div>
@@ -105,44 +92,34 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </Dialog>
         </Transition.Root>
 
-        {/* Desktop sidebar */}
         <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
           <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4">
             <div className="flex h-16 shrink-0 items-center">
-              <img
-                className="h-8 w-auto"
-                src="/logo.png"
-                alt="Mercury Trade"
-              />
+              <img className="h-8 w-auto" src="/logo.png" alt="Mercury Trade" />
             </div>
             <nav className="flex flex-1 flex-col">
-              <ul role="list" className="flex flex-1 flex-col gap-y-7">
-                <li>
-                  <ul role="list" className="-mx-2 space-y-1">
-                    {navigation.map((item) => (
-                      <li key={item.name}>
-                        <Link
-                          to={item.href}
-                          className={classNames(
-                            item.current
-                              ? 'bg-gray-800 text-white'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-800',
-                            'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
-                          )}
-                        >
-                          <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
-                          {item.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
+              <ul role="list" className="-mx-2 space-y-1">
+                {navigation.map((item) => (
+                  <li key={item.name}>
+                    <Link
+                      to={item.href}
+                      className={classNames(
+                        location.pathname === item.href
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                        'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                      )}
+                    >
+                      <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+                      {item.name}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </nav>
           </div>
         </div>
 
-        {/* Main content */}
         <div className="lg:pl-72">
           <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
             <button type="button" className="-m-2.5 p-2.5 text-gray-700 lg:hidden" onClick={() => setSidebarOpen(true)}>
@@ -162,12 +139,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </div>
 
           <main className="py-10">
-            <div className="px-4 sm:px-6 lg:px-8">
-              {children}
-            </div>
+            <div className="px-4 sm:px-6 lg:px-8">{children}</div>
           </main>
         </div>
       </div>
     </>
-  )
+  );
 }

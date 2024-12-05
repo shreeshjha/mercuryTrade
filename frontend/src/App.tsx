@@ -8,18 +8,28 @@ import Trading from './pages/Trading';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import Portfolio from './pages/Portfolio';
+import { PortfolioProvider } from './contexts/PortfolioContext';
+import Positions from './pages/Positions';
+import { PositionsProvider } from './contexts/PositionsContext';
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
 
+  console.log('ProtectedRoute:', { isAuthenticated, loading }); // Debug log
+
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/portfolio" />; // Changed from /trading to /login
   }
 
   return <>{children}</>;
@@ -30,10 +40,15 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TradingProvider>
-          <Router>
+          <PortfolioProvider>
+            <PositionsProvider>
+            <Router>
             <Routes>
+              {/* Public routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+
+              {/* Protected routes */}
               <Route
                 path="/"
                 element={
@@ -47,26 +62,48 @@ function App() {
               <Route
                 path="/trading"
                 element={
-                  <ProtectedRoute>
-                    <MainLayout>
-                      <Trading />
-                    </MainLayout>
-                  </ProtectedRoute>
+                  <MainLayout>
+                    <Trading />
+                  </MainLayout>
                 }
               />
               <Route
                 path="/profile"
                 element={
-                  <ProtectedRoute>
+                  
                     <MainLayout>
                       <Profile />
                     </MainLayout>
-                  </ProtectedRoute>
-              }
+                  
+                }
               />
-              {/* Add other protected routes */}
+              <Route
+                  path="/portfolio"
+                  element={
+                    
+                      <MainLayout>
+                        <Portfolio />
+                      </MainLayout>
+                    
+                }
+              />
+              <Route 
+                path="/positions" element={
+                    <MainLayout>
+                      <Positions />
+                    </MainLayout>
+                    
+                  }
+                />
+
+              {/* Catch-all redirect to dashboard */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Router>
+            </PositionsProvider>
+          
+          </PortfolioProvider>
+          
         </TradingProvider>
       </AuthProvider>
     </QueryClientProvider>
