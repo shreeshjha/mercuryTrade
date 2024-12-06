@@ -5,10 +5,9 @@ project(mercuryTrade VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-## Debug 
-set(CMAKE_BUILD_TYPE Debug) # Ensure the Debug build type is used
+# Debug settings
+set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
-
 
 # Add compiler warnings
 if(MSVC)
@@ -51,11 +50,46 @@ if(UNIX AND NOT APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
 endif()
 
+# Add Crow as a header-only library
+add_library(Crow INTERFACE)
+target_include_directories(Crow INTERFACE ${CMAKE_SOURCE_DIR}/Crow/include)
+
+# Add jwt-cpp as a header-only library
+add_library(jwt-cpp INTERFACE)
+target_include_directories(jwt-cpp INTERFACE ${CMAKE_SOURCE_DIR}/jwt-cpp/include)
+
+# Add nlohmann_json as a header-only library
+add_library(nlohmann_json INTERFACE)
+target_include_directories(nlohmann_json INTERFACE ${CMAKE_SOURCE_DIR}/nlohmann_json/include)
+
 # Add the include directory to the include path
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Add the main library
 add_subdirectory(src)
+
+# Add API library
+add_library(mercury_api
+    src/api/auth/AuthController.cpp
+    src/api/market/MarketDataController.cpp
+    src/api/routes/AuthRoutes.cpp
+    src/api/routes/MarketDataRoutes.cpp
+)
+
+target_link_libraries(mercury_api
+    PRIVATE
+        mercury_memory
+        Crow
+        jwt-cpp
+        nlohmann_json
+)
+
+# Add server executable
+add_executable(mercury_server src/api/main.cpp)
+target_link_libraries(mercury_server
+    PRIVATE
+        mercury_api
+)
 
 # Add verbose test output option
 option(ENABLE_VERBOSE_TESTS "Enable verbose output in tests" ON)
@@ -68,7 +102,7 @@ option(BUILD_TESTS "Build the tests" ON)
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
-
+    
     # Apply sanitizers to all test targets
     if(ENABLE_ADDRESS_SANITIZER OR ENABLE_THREAD_SANITIZER OR ENABLE_UNDEFINED_SANITIZER)
         get_property(TEST_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests PROPERTY BUILDSYSTEM_TARGETS)
@@ -93,4 +127,26 @@ if(BUILD_TESTS)
             endif()
         endforeach()
     endif()
+endif()
+
+# Apply sanitizers to API library and server
+if(ENABLE_ADDRESS_SANITIZER)
+    target_compile_options(mercury_api PRIVATE -fsanitize=address)
+    target_link_options(mercury_api PRIVATE -fsanitize=address)
+    target_compile_options(mercury_server PRIVATE -fsanitize=address)
+    target_link_options(mercury_server PRIVATE -fsanitize=address)
+endif()
+
+if(ENABLE_THREAD_SANITIZER)
+    target_compile_options(mercury_api PRIVATE -fsanitize=thread)
+    target_link_options(mercury_api PRIVATE -fsanitize=thread)
+    target_compile_options(mercury_server PRIVATE -fsanitize=thread)
+    target_link_options(mercury_server PRIVATE -fsanitize=thread)
+endif()
+
+if(ENABLE_UNDEFINED_SANITIZER)
+    target_compile_options(mercury_api PRIVATE -fsanitize=undefined)
+    target_link_options(mercury_api PRIVATE -fsanitize=undefined)
+    target_compile_options(mercury_server PRIVATE -fsanitize=undefined)
+    target_link_options(mercury_server PRIVATE -fsanitize=undefined)
 endif()
