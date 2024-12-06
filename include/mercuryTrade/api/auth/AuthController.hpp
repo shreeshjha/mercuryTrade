@@ -2,7 +2,11 @@
 #pragma once
 
 #include <memory>
+<<<<<<< HEAD
 #include <crow>
+=======
+#include <crow.h>
+>>>>>>> 66198280ff132809c83603358161bc8bb029aa5e
 #include "../../services/UserService.hpp"
 
 namespace mercuryTrade {
@@ -20,4 +24,7 @@ public:
 private:
     std::shared_ptr<UserService> m_userService;
 };
+<<<<<<< HEAD
 }}}
+=======
+>>>>>>> 66198280ff132809c83603358161bc8bb029aa5e

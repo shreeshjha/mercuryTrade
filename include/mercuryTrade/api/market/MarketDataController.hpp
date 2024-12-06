@@ -22,4 +22,8 @@ public:
 private:
     std::shared_ptr<MarketDataService> m_marketDataService;
     std::shared_ptr<OrderBookService> m_orderBookService;
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> 66198280ff132809c83603358161bc8bb029aa5e

@@ -50,6 +50,7 @@ if(UNIX AND NOT APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
 endif()
 
+<<<<<<< HEAD
 # Add Crow as a header-only library
 add_library(Crow INTERFACE)
 target_include_directories(Crow INTERFACE ${CMAKE_SOURCE_DIR}/Crow/include)
@@ -61,6 +62,44 @@ target_include_directories(jwt-cpp INTERFACE ${CMAKE_SOURCE_DIR}/jwt-cpp/include
 # Add nlohmann_json as a header-only library
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE ${CMAKE_SOURCE_DIR}/nlohmann_json/include)
+=======
+# Find required packages
+find_package(Crow REQUIRED)
+find_package(jwt-cpp REQUIRED)
+find_package(nlohmann_json REQUIRED)
+
+# Add API library 
+add_library(mercury_api
+  src/api/auth/AuthController.cpp 
+  src/api/market/MarketDataController.cpp 
+  src/api/routes/AuthRoutes.cpp 
+  src/api/routes/MarketDataRoutes.cpp
+)
+
+target_link_libraries(mercury_api 
+  PRIVATE
+    mercury_memory
+    Crow::Crow 
+    jwt-cpp
+    nlohmann_json
+)
+
+# Add server executable
+add_executable(mercury_server src/api/main.cpp)
+target_link_libraries(mercury_server 
+  PRIVATE
+    mercury_api
+)
+
+# Apply same sanitizer settings to API library and server 
+if(ENABLE_ADDRESS_SANITIZER)
+    target_compile_options(mercury_api PRIVATE -fsanitize=address)
+    target_link_options(mercury_api PRIVATE -fsanitize=address)
+    target_compile_options(mercury_server PRIVATE -fsanitize=address)
+    target_link_options(mercury_server PRIVATE -fsanitize=address)
+endif()
+
+>>>>>>> 66198280ff132809c83603358161bc8bb029aa5e
 
 # Add the include directory to the include path
 include_directories(${PROJECT_SOURCE_DIR}/include)

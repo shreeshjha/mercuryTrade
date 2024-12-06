@@ -1,7 +1,13 @@
 // src/api/main.cpp
+<<<<<<< HEAD
 #include "crow.h"
 #include "mercuryTrade/api/routes/AuthRoutes.hpp"
 #include "mercuryTrade/api/routes/MarketDataRoutes.hpp"
+=======
+#include <crow.h>
+#include "../../include/mercuryTrade/api/routes/AuthRoutes.hpp"
+#include "../../include/mercuryTrade/api/routes/MarketDataRoutes.hpp"
+>>>>>>> 66198280ff132809c83603358161bc8bb029aa5e
 
 int main() {
     crow::App<crow::CORSHandler> app;
@@ -28,4 +34,8 @@ int main() {
 
     app.port(3000).multithreaded().run();
     return 0;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 66198280ff132809c83603358161bc8bb029aa5e
