@@ -63,3 +63,49 @@ jobs:
         path: |
           build
           build/asan.log
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Log System Information
+      run: |
+        uname -a
+        clang++ --version || echo "clang++ not installed"
+        cmake --version
+
+    - name: Install dependencies
+      run: |
+        brew install cmake boost nlohmann-json
+
+    - name: Create Build Directory
+      run: mkdir build
+
+    - name: Configure CMake
+      run: |
+        cd build
+        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" -DCMAKE_BUILD_TYPE=Debug ..
+   - name: Build
+      run: |
+        cd build
+        cmake --build . --config Debug
+
+    - name: Run Tests with ASan
+      env:
+        ASAN_OPTIONS: "detect_leaks=0 log_path=asan.log"
+      run: |
+        cd build
+        ctest --output-on-failure || true
+        cat asan.log || echo "No ASan logs generated."
+
+    - name: Upload Logs and Test Results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: logs-and-results-macos
+        path: |
+          build
+          build/asan.log
+
