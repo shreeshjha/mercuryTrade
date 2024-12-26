@@ -61,7 +61,7 @@ add_library(mercury_http
 target_include_directories(mercury_http PUBLIC
     ${PROJECT_SOURCE_DIR}/include
 )
-
+find_package(nlohmann_json REQUIRED)
 
 target_link_libraries(mercury_api
     PRIVATE
@@ -223,7 +223,7 @@ endif()
 # endif()
 
 
-# find_package(Boost REQUIRED)
+# _package(Boost REQUIRED)
 
 # # Add ASIO as header-only library
 # add_library(asio INTERFACE)
