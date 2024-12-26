@@ -26,7 +26,7 @@ endif()
 #     ${PROJECT_SOURCE_DIR}/include
 # )
 find_package(nlohmann_json REQUIRED)
-include_directories(${PROJECT_SOURCE_DIR}/json/include)
+# include_directories(${PROJECT_SOURCE_DIR}/json/include)
 
 
 # Add JSON library (using the one in your project)
@@ -68,7 +68,9 @@ target_link_libraries(mercury_api
         mercury_memory
         nlohmann_json
 )
-
+target_link_libraries(mercury_http PUBLIC
+    nlohmann_json
+)
 # Add server executable
 add_executable(mercury_server src/api/main.cpp)
 target_link_libraries(mercury_server
