@@ -1,41 +1,56 @@
-// src/api/main.cpp
-<<<<<<< HEAD
-#include "crow.h"
-#include "mercuryTrade/api/routes/AuthRoutes.hpp"
-#include "mercuryTrade/api/routes/MarketDataRoutes.hpp"
-=======
-#include <crow.h>
-#include "../../include/mercuryTrade/api/routes/AuthRoutes.hpp"
-#include "../../include/mercuryTrade/api/routes/MarketDataRoutes.hpp"
->>>>>>> 66198280ff132809c83603358161bc8bb029aa5e
+#include "mercuryTrade/http/Server.hpp"
+#include "mercuryTrade/api/auth/AuthController.hpp"
+#include "mercuryTrade/api/market/MarketDataController.hpp"
+#include "mercuryTrade/api/orders/OrderController.hpp"
+#include <memory>
 
 int main() {
-    crow::App<crow::CORSHandler> app;
+    auto userService = std::make_shared<mercuryTrade::UserService>();
+    auto marketDataService = std::make_shared<mercuryTrade::MarketDataService>();
+    auto orderBookService = std::make_shared<mercuryTrade::OrderBookService>();
+    auto orderService = std::make_shared<mercuryTrade::OrderService>();
 
-    // Configure CORS
-    auto& cors = app.get_middleware<crow::CORSHandler>();
-    cors
-        .global()
-        .headers("*")
-        .methods("GET"_method, "POST"_method, "PUT"_method, "DELETE"_method);
 
-    // Initialize services and controllers
-    auto userService = std::make_shared<UserService>();
-    auto marketDataService = std::make_shared<MarketDataService>();
-    auto orderBookService = std::make_shared<OrderBookService>();
-
-    auto authController = std::make_shared<auth::AuthController>(userService);
-    auto marketDataController = std::make_shared<market::MarketDataController>(
+    auto authController = std::make_shared<mercuryTrade::api::auth::AuthController>(userService);
+    auto marketDataController = std::make_shared<mercuryTrade::api::market::MarketDataController>(
         marketDataService, orderBookService);
+    auto orderController = std::make_shared<mercuryTrade::api::orders::OrderController>(orderService);
 
-    // Register routes
-    mercuryTrade::api::routes::registerAuthRoutes(app, authController);
-    mercuryTrade::api::routes::registerMarketDataRoutes(app, marketDataController);
+    mercuryTrade::http::Server server(3000);
 
-    app.port(3000).multithreaded().run();
+
+    server.post("/api/auth/login", [&](const mercuryTrade::http::Request& req) { 
+        return authController->login(req); 
+    });
+    server.post("/api/auth/register", [&](const mercuryTrade::http::Request& req) { 
+        return authController->registerUser(req); 
+    });
+    server.post("/api/auth/logout", [&](const mercuryTrade::http::Request& req) { 
+        return authController->logout(req); 
+    });
+
+
+    server.get("/api/market-data/{symbol}", [&](const mercuryTrade::http::Request& req) { 
+        return marketDataController->getMarketData(req.getParam("symbol")); 
+    });
+    
+    server.get("/api/order-book/{symbol}", [&](const mercuryTrade::http::Request& req) { 
+        return marketDataController->getOrderBook(req.getParam("symbol")); 
+    });
+
+
+    server.get("/api/orders", [&](const mercuryTrade::http::Request& req) { 
+        return orderController->getOrders(); 
+    });
+    
+    server.get("/api/orders/{id}", [&](const mercuryTrade::http::Request& req) { 
+        return orderController->getOrderById(req.getParam("id")); 
+    });
+    
+    server.post("/api/orders", [&](const mercuryTrade::http::Request& req) { 
+        return orderController->placeOrder(req); 
+    });
+
+    server.start();
     return 0;
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 66198280ff132809c83603358161bc8bb029aa5e

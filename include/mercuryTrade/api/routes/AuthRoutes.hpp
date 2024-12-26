@@ -7,25 +7,21 @@ namespace mercuryTrade {
 namespace api {
 namespace routes {
 
-void registerAuthRoutes(crow::App<crow::CORSHandler>& app, 
-    std::shared_ptr<auth::AuthController> authController);
+void registerAuthRoutes(crow::SimpleApp& app, std::shared_ptr<auth::AuthController> controller) {
+    CROW_ROUTE(app, "/api/auth/login").methods(crow::HTTPMethod::POST)
+    ([controller](const crow::request& req) {
+        return controller->login(req);
+    });
 
-}}}
-<<<<<<< HEAD
+    CROW_ROUTE(app, "/api/auth/register").methods(crow::HTTPMethod::POST)
+    ([controller](const crow::request& req) {
+        return controller->registerUser(req);
+    });
 
-// include/mercuryTrade/api/routes/MarketDataRoutes.hpp
-#pragma once
+    CROW_ROUTE(app, "/api/auth/logout").methods(crow::HTTPMethod::POST)
+    ([controller](const crow::request& req) {
+        return controller->logout(req);
+    });
+}
 
-#include <crow.h>
-#include "../market/MarketDataController.hpp"
-
-namespace mercuryTrade {
-namespace api {
-namespace routes {
-
-void registerMarketDataRoutes(crow::App<crow::CORSHandler>& app, 
-    std::shared_ptr<market::MarketDataController> marketDataController);
-
-}}}
-=======
->>>>>>> 66198280ff132809c83603358161bc8bb029aa5e
+}}} // namespace
