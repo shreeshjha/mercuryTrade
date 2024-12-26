@@ -22,16 +22,16 @@ if(APPLE)
 endif()
 
 # Global include directories
-include_directories(
-    ${PROJECT_SOURCE_DIR}/include
-)
-
+# include_directories(
+#     ${PROJECT_SOURCE_DIR}/include
+# )
+find_package(nlohmann_json REQUIRED)
 include_directories(${PROJECT_SOURCE_DIR}/json/include)
 
 
 # Add JSON library (using the one in your project)
-add_library(nlohmann_json INTERFACE)
-target_include_directories(nlohmann_json INTERFACE ${PROJECT_SOURCE_DIR}/json/include)
+# add_library(nlohmann_json INTERFACE)
+# target_include_directories(nlohmann_json INTERFACE ${PROJECT_SOURCE_DIR}/json)
 
 
 # Add the main library
@@ -61,7 +61,7 @@ add_library(mercury_http
 target_include_directories(mercury_http PUBLIC
     ${PROJECT_SOURCE_DIR}/include
 )
-find_package(nlohmann_json REQUIRED)
+
 
 target_link_libraries(mercury_api
     PRIVATE
