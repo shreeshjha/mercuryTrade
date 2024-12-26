@@ -26,13 +26,14 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        sudo apt-get remove -y libunwind-dev || true
         sudo apt-get install -y \
           clang-16 \
           lld-16 \
           libc++-16-dev \
           libc++abi-16-dev \
+          libunwind-16-dev \
           libasan6 \
-          libunwind-dev \
           cmake \
           build-essential \
           valgrind \
