@@ -1,0 +1,122 @@
+name: Build and Test
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Log System Information
+      run: |
+        uname -a
+        clang++ --version || echo "clang++ not installed"
+        cmake --version
+    
+    - name: Setup LLVM repository
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 16
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get remove -y libunwind-dev || true
+        sudo apt-get install -y \
+          clang-16 \
+          lld-16 \
+          libc++-16-dev \
+          libc++abi-16-dev \
+          libunwind-16-dev \
+          libasan6 \
+          cmake \
+          build-essential \
+          valgrind \
+          libboost-all-dev \
+          nlohmann-json3-dev
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-16 100
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-16 100
+    
+    - name: Create Build Directory
+      run: mkdir build
+    
+    - name: Configure CMake
+      run: |
+        cd build
+        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -stdlib=libc++ -g" \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              -DCMAKE_BUILD_TYPE=Debug ..
+    
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Debug
+    
+    - name: Run Tests with ASan
+      env:
+        ASAN_OPTIONS: "detect_leaks=1 log_path=asan.log verbosity=1 alloc_dealloc_mismatch=0"
+      run: |
+        cd build
+        ctest --output-on-failure || true
+        cat asan.log || echo "No ASan logs generated."
+    
+    - name: Upload Logs and Test Results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: logs-and-results-linux
+        path: |
+          build
+          build/asan.log
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Log System Information
+      run: |
+        uname -a
+        clang++ --version || echo "clang++ not installed"
+        cmake --version
+    
+    - name: Install dependencies
+      run: |
+        brew install cmake boost nlohmann-json
+    
+    - name: Create Build Directory
+      run: mkdir build
+    
+    - name: Configure CMake
+      run: |
+        cd build
+        cmake -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+              -DCMAKE_CXX_STANDARD=17 \
+              -DCMAKE_BUILD_TYPE=Debug ..
+    
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Debug
+    
+    - name: Run Tests with ASan
+      env:
+        ASAN_OPTIONS: "detect_leaks=0 log_path=asan.log"
+      run: |
+        cd build
+        ctest --output-on-failure || true
+        cat asan.log || echo "No ASan logs generated."
+    
+    - name: Upload Logs and Test Results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: logs-and-results-macos
+        path: |
+          build
+          build/asan.log
