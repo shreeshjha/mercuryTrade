@@ -17,8 +17,8 @@ endif()
 if(APPLE)
     set(CMAKE_MACOSX_RPATH 1)
     # Add Homebrew paths for macOS
-    set(PQXX_LIBRARY_PATH "/opt/homebrew/lib/libpqxx.dylib")
     set(PQXX_INCLUDE_PATH "/opt/homebrew/include")
+    set(PQXX_LIBRARY_PATH "/opt/homebrew/lib/libpqxx.dylib")
     set(SPDLOG_INCLUDE_PATH "/opt/homebrew/include")
     set(SPDLOG_LIBRARY_PATH "/opt/homebrew/lib/libspdlog.dylib")
 endif()
@@ -26,27 +26,34 @@ endif()
 if(UNIX AND NOT APPLE)
     add_compile_options(-pthread)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
-    set(PQXX_LIBRARY_PATH "/usr/lib/libpqxx.so")
     set(PQXX_INCLUDE_PATH "/usr/include")
+    set(PQXX_LIBRARY_PATH "/usr/lib/libpqxx.so")
     set(SPDLOG_INCLUDE_PATH "/usr/include")
     set(SPDLOG_LIBRARY_PATH "/usr/lib/libspdlog.so")
 endif()
 
+# Manually set CMAKE_PREFIX_PATH to help CMake find packages
+set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/opt/homebrew;/opt/homebrew/lib/cmake/pqxx")
+
 # Required packages
 find_package(nlohmann_json REQUIRED)
 
-# WebSocket++ as header-only library
+# Manually configure pqxx since pqxxConfig.cmake is missing
+include_directories(${PQXX_INCLUDE_PATH})
+link_directories(${PQXX_LIBRARY_PATH})
+
+# WebSocket++ as a header-only library
 add_library(websocketpp INTERFACE)
 target_include_directories(websocketpp INTERFACE 
     ${PROJECT_SOURCE_DIR}/external/websocketpp
 )
 
-# Create libpqxx interface library
+# Manually create pqxx interface library
 add_library(pqxx INTERFACE)
 target_include_directories(pqxx INTERFACE ${PQXX_INCLUDE_PATH})
 target_link_libraries(pqxx INTERFACE ${PQXX_LIBRARY_PATH})
 
-# Create spdlog interface library
+# Manually create spdlog interface library
 add_library(spdlog INTERFACE)
 target_include_directories(spdlog INTERFACE ${SPDLOG_INCLUDE_PATH})
 target_link_libraries(spdlog INTERFACE ${SPDLOG_LIBRARY_PATH})

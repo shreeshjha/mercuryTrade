@@ -21,7 +21,9 @@ public:
             
             // Verify token
             auto verifier = jwt::verify()
-                .allow_algorithm(jwt::algorithm::hs256{config::Config::getInstance().getJwtSecret()});
+                .allow_algorithm(jwt::algorithm::hs256("6fh26cj27xn72nf7n27fndsknfw7"));
+
+
             
             verifier.verify(decoded);
             return http::Response::json({{"status", "success"}}, 200);

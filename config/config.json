@@ -14,7 +14,7 @@
         "port": 3001
     },
     "jwt": {
-        "secret": "your_jwt_secret_key",
+        "secret": "6fh26cj27xn72nf7n27fndsknfw7",
         "expiresIn": "24h"
     },
     "logging": {

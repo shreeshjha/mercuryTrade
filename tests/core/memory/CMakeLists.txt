@@ -60,3 +60,5 @@ add_test(NAME MarketDataAllocatorTest COMMAND mercMarketDataAllocatorTest)
 add_test(NAME OrderBookAllocatorTest COMMAND mercOrderBookAllocatorTest)
 add_test(NAME TransactionAllocatorTest COMMAND mercTransactionAllocatorTest)
 add_test(NAME TradingManagerTest COMMAND mercTradingManagerTest)
+
+
