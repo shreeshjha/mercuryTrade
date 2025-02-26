@@ -7,7 +7,9 @@ export class WebSocketService {
   constructor(private url: string) {}
 
   connect() {
-    this.ws = new WebSocket(this.url);
+    const token = localStorage.getItem('token');
+    this.ws = new WebSocket(`${this.url}?token=${token}`);
+    // this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
       console.log('WebSocket Connected');
