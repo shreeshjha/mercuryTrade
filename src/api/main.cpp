@@ -94,12 +94,12 @@ int main(int argc, char* argv[]) {
     });
     
     // Market data routes
-    server.get("/api/market-data/:symbol", [&](const http::Request& req) {
-        return marketDataController->getMarketData(req.params["symbol"]);
+    server.get("/api/market-data/{symbol}", [&](const http::Request& req) {
+        return marketDataController->getMarketData(req.getParam("symbol"));
     });
     
-    server.get("/api/market-data/:symbol/order-book", [&](const http::Request& req) {
-        return marketDataController->getOrderBook(req.params["symbol"]);
+    server.get("/api/market-data/{symbol}/order-book", [&](const http::Request& req) {
+        return marketDataController->getOrderBook(req.getParam("symbol"));
     });
     
     // Order routes
@@ -111,12 +111,12 @@ int main(int argc, char* argv[]) {
         return orderController->getOrders();
     });
     
-    server.get("/api/orders/:id", [&](const http::Request& req) {
-        return orderController->getOrderById(req.params["id"]);
+    server.get("/api/orders/{id}", [&](const http::Request& req) {
+        return orderController->getOrderById(req.getParam("id"));
     });
     
-    server.del("/api/orders/:id", [&](const http::Request& req) {
-        return orderController->cancelOrder(req.params["id"]);
+    server.del("/api/orders/{id}", [&](const http::Request& req) {
+        return orderController->cancelOrder(req.getParam("id"));
     });
     
     // Start the server

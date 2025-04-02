@@ -23,6 +23,8 @@ public:
         };
     }
 
+    
+
 private:
     std::string m_id;
     std::string m_email;
@@ -35,6 +37,7 @@ public:
     User createUser(const std::string& email, const std::string& username, const std::string& password);
     void updateUser(const std::string& userId, const std::string& email, const std::string& username);
     void changePassword(const std::string& userId, const std::string& oldPassword, const std::string& newPassword);
+    std::shared_ptr<User> getUserById(const std::string& userId);
 
 private:
     // Would connect to user database

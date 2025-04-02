@@ -26,6 +26,11 @@ struct Request {
     nlohmann::json json_body;
     std::string user_id;   // Set if JWT token is valid
     std::string user_role; // Role from JWT token
+
+    std::string getParam(const std::string& name, const std::string& defaultValue = "") const {
+        auto it = params.find(name);
+        return it != params.end() ? it->second : defaultValue;
+    }
 };
 
 struct Response {

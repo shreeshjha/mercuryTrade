@@ -205,6 +205,45 @@ bool tradingManager::beginTransaction() {
                     return false;
                 }
             }
+
+            bool tradingManager::modifyOrder(const std::string& order_id, const order& new_order) {
+                if (m_status != Status::RUNNING) {
+                    return false;
+                }
+                
+                try {
+                    if (m_config.enable_transactions) {
+                        beginTransaction();
+                    }
+                    
+                    // Find existing order
+                    OrderNode* existing = m_order_allocator.findOrder(order_id);
+                    if (!existing) {
+                        if (m_config.enable_transactions) {
+                            rollbackTransaction();
+                        }
+                        return false;
+                    }
+                    
+                    // Update order properties
+                    existing->price = new_order.price;
+                    existing->quantity = new_order.quantity;
+                    
+                    // Update order book
+                    updateOrderBook(new_order.symbol);
+                    
+                    if (m_config.enable_transactions) {
+                        commitTransaction();
+                    }
+                    
+                    return true;
+                } catch (...) {
+                    if (m_config.enable_transactions) {
+                        rollbackTransaction();
+                    }
+                    return false;
+                }
+            }
             
             void tradingManager::optimizeMemory(){
                 if (m_status != Status::RUNNING && m_status != Status::PAUSED){

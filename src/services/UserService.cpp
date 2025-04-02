@@ -37,6 +37,20 @@ User UserService::createUser(const std::string& email, const std::string& userna
     return User(userId, email, username);
 }
 
+std::shared_ptr<User> UserService::getUserById(const std::string& userId) {
+    // Find user by ID in your users map
+    for (const auto& entry : userIds_) {
+        if (entry.second == userId) {
+            const std::string& email = entry.first;
+            auto it = users_.find(email);
+            if (it != users_.end()) {
+                return std::make_shared<User>(userId, email, it->second.second);
+            }
+        }
+    }
+    return nullptr; // User not found
+}
+
 void UserService::updateUser(const std::string& userId, const std::string& email, const std::string& username) {
     // Implementation would update user details in database
 }
